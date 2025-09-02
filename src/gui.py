@@ -17,6 +17,7 @@ Features:
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 import os
+import re
 import threading
 import time
 import tempfile
@@ -32,12 +33,21 @@ try:
     from .templates.readme_templates import ReadmeTemplateEngine, TemplateConfig
     from .utils.logger import get_logger
     from .config.settings import SettingsManager
+    from .template_builder import create_custom_template_builder
     from github import Github
 except ImportError:
     from analyzers.repository_analyzer import RepositoryAnalyzer, ProjectMetadata  
     from templates.readme_templates import ReadmeTemplateEngine, TemplateConfig
     from utils.logger import get_logger
     from config.settings import SettingsManager
+    try:
+        from template_builder import create_custom_template_builder
+    except ImportError:
+        # Fallback function if template builder fails to import
+        def create_custom_template_builder(parent):
+            from tkinter import messagebox
+            messagebox.showerror("Feature Unavailable", "Custom template builder is not available in this session.")
+            return None
     try:
         from github import Github
     except ImportError:
@@ -258,11 +268,33 @@ class RepoReadmeGUI:
         self.template_var = tk.StringVar(value="modern")
         templates = self.template_engine.get_available_templates()
         
-        for template in templates:
-            description = self.template_engine.get_template_description(template)
-            ttk.Radiobutton(template_frame, text=f"{template.title()}: {description}",
-                           variable=self.template_var, value=template,
-                           command=self.on_template_change).pack(anchor='w', pady=2)
+        # Template selection with combobox for better space usage
+        selection_frame = ttk.Frame(template_frame)
+        selection_frame.pack(fill='x', pady=5)
+        
+        ttk.Label(selection_frame, text="Template:").pack(side='left')
+        self.template_combo = ttk.Combobox(selection_frame, textvariable=self.template_var,
+                                         values=templates, state='readonly', width=15)
+        self.template_combo.pack(side='left', padx=5)
+        self.template_combo.bind('<<ComboboxSelected>>', lambda e: self.on_template_change())
+        
+        # Template description
+        self.template_desc_var = tk.StringVar()
+        self.template_desc_label = ttk.Label(template_frame, textvariable=self.template_desc_var,
+                                           foreground='gray', wraplength=300, font=('Arial', 9))
+        self.template_desc_label.pack(anchor='w', pady=2)
+        
+        # Template actions
+        template_actions = ttk.Frame(template_frame)
+        template_actions.pack(fill='x', pady=5)
+        
+        ttk.Button(template_actions, text="🎨 Create Custom", 
+                  command=self.open_template_builder, style='Action.TButton').pack(side='left')
+        ttk.Button(template_actions, text="📁 Manage", 
+                  command=self.manage_templates, style='Action.TButton').pack(side='left', padx=5)
+        
+        # Update description when template changes
+        self.update_template_description()
         
         # Template Options
         options_frame = ttk.LabelFrame(scrollable_frame, text="Template Options", padding=15)
@@ -340,17 +372,104 @@ class RepoReadmeGUI:
         ttk.Label(control_frame, text="📄 README Preview", 
                  style='Header.TLabel').pack(side='left')
         
-        ttk.Button(control_frame, text="🔄 Refresh", 
-                  command=self.refresh_preview, style='Action.TButton').pack(side='right')
+        # Control buttons
+        button_frame = ttk.Frame(control_frame)
+        ttk.Button(button_frame, text="🔄 Refresh", 
+                  command=self.refresh_preview, style='Action.TButton').pack(side='left', padx=2)
+        ttk.Button(button_frame, text="📋 Copy to Clipboard", 
+                  command=self.copy_preview_to_clipboard, style='Action.TButton').pack(side='left', padx=2)
+        button_frame.pack(side='right')
         
-        # Preview text area
+        # Preview text area with enhanced styling
         self.preview_text = scrolledtext.ScrolledText(self.preview_frame, 
                                                      font=('Consolas', 10), 
-                                                     wrap=tk.WORD)
-        self.preview_text.insert('1.0', "Select a repository and configure template to see preview...")
+                                                     wrap=tk.WORD,
+                                                     bg='#f8f9fa',
+                                                     fg='#24292f',
+                                                     insertbackground='#24292f',
+                                                     selectbackground='#0969da',
+                                                     selectforeground='white')
+        self.preview_text.insert('1.0', "Welcome to RepoReadme! 👋\n\nTo get started:\n1. Add a repository using the buttons above\n2. Select and analyze a repository\n3. Choose your template style\n4. Watch the magic happen here!\n\nYour professional README preview will appear with beautiful syntax highlighting.")
+        
+        # Setup syntax highlighting tags
+        self._setup_markdown_tags()
         
         control_frame.pack(fill='x', pady=(0, 10))
         self.preview_text.pack(fill='both', expand=True)
+    
+    def _setup_markdown_tags(self):
+        """Setup text tags for markdown syntax highlighting."""
+        # Headers with GitHub-like styling
+        self.preview_text.tag_configure("h1", font=('Segoe UI', 20, 'bold'), foreground='#1f2328', spacing1=10, spacing3=10)
+        self.preview_text.tag_configure("h2", font=('Segoe UI', 16, 'bold'), foreground='#1f2328', spacing1=8, spacing3=8)
+        self.preview_text.tag_configure("h3", font=('Segoe UI', 14, 'bold'), foreground='#1f2328', spacing1=6, spacing3=6)
+        
+        # Emphasis
+        self.preview_text.tag_configure("bold", font=('Segoe UI', 10, 'bold'), foreground='#1f2328')
+        self.preview_text.tag_configure("italic", font=('Segoe UI', 10, 'italic'), foreground='#656d76')
+        
+        # Code styling
+        self.preview_text.tag_configure("code", font=('Consolas', 9), 
+                                       background='#f6f8fa', foreground='#d73a49',
+                                       relief='flat', borderwidth=1, lmargin1=2, lmargin2=2)
+        self.preview_text.tag_configure("code_block", font=('Consolas', 9), 
+                                       background='#f6f8fa', foreground='#24292f',
+                                       relief='flat', lmargin1=15, rmargin=15, spacing1=5, spacing3=5)
+        
+        # Links
+        self.preview_text.tag_configure("link", foreground='#0969da', underline=True)
+        
+        # Lists
+        self.preview_text.tag_configure("list_item", foreground='#24292f', lmargin1=20, lmargin2=20)
+        
+        # Quotes
+        self.preview_text.tag_configure("quote", foreground='#656d76', 
+                                       background='#f6f8fa', lmargin1=15, rmargin=15, 
+                                       spacing1=3, spacing3=3)
+        
+        # Table styling
+        self.preview_text.tag_configure("table_header", font=('Segoe UI', 10, 'bold'), foreground='#1f2328')
+        self.preview_text.tag_configure("table_row", foreground='#24292f')
+        
+        # Special styling
+        self.preview_text.tag_configure("emoji", font=('Segoe UI Emoji', 12))
+        self.preview_text.tag_configure("separator", foreground='#d0d7de')
+        
+        # Badges (shields.io style)
+        self.preview_text.tag_configure("badge", font=('Segoe UI', 8), 
+                                       background='#0969da', foreground='white',
+                                       relief='flat', borderwidth=1)
+    
+    def copy_preview_to_clipboard(self):
+        """Copy the preview content to clipboard."""
+        # Temporarily enable to get content
+        was_disabled = str(self.preview_text['state']) == 'disabled'
+        if was_disabled:
+            self.preview_text.config(state='normal')
+        
+        content = self.preview_text.get('1.0', tk.END).strip()
+        
+        # Restore state
+        if was_disabled:
+            self.preview_text.config(state='disabled')
+        
+        # Check if we have real content to copy
+        welcome_messages = [
+            "Welcome to RepoReadme!",
+            "Select and analyze a repository",
+            "Select a repository and configure template"
+        ]
+        
+        if content and not any(msg in content for msg in welcome_messages):
+            self.root.clipboard_clear()
+            self.root.clipboard_append(content)
+            self.root.update()  # Keep clipboard data
+            
+            # Show feedback
+            self.status_var.set("README content copied to clipboard!")
+            messagebox.showinfo("Copied! 📋", "README content has been copied to clipboard!")
+        else:
+            messagebox.showwarning("Nothing to Copy", "Generate a README first to copy content.")
     
     def create_analysis_tab(self):
         """Create the repository analysis results tab."""
@@ -389,32 +508,63 @@ class RepoReadmeGUI:
     
     def add_local_repository(self):
         """Add a local repository folder."""
+        print("🔍 DEBUG: add_local_repository() called")
         folder_path = filedialog.askdirectory(title="Select Repository Folder")
+        print(f"🔍 DEBUG: Selected folder path: {folder_path}")
         if folder_path:
             repo_name = os.path.basename(folder_path)
+            print(f"🔍 DEBUG: Creating repo_item with name: {repo_name}")
             repo_item = RepositoryItem(repo_name, folder_path, "", "local")
+            print(f"🔍 DEBUG: Repo item created: {repo_item.name}, type: {repo_item.repo_type}")
             self.repositories.append(repo_item)
+            print(f"🔍 DEBUG: Added to repositories list. Total repos: {len(self.repositories)}")
             self.update_repository_list()
+            print("🔍 DEBUG: Repository list updated")
             self.logger.info(f"Added local repository: {repo_name}", "GUI")
     
     def add_github_repository(self):
         """Add a GitHub repository."""
+        print("🔍 DEBUG: add_github_repository() called")
+        print(f"🔍 DEBUG: GitHub client available: {self.github_client is not None}")
+        
         if self.github_client is None:
+            print("🔍 DEBUG: GitHub client is None, showing error")
             messagebox.showerror("GitHub Unavailable", 
                                "GitHub client not available. Please ensure PyGithub is installed.")
             return
             
+        # Update status to show we're opening dialog
+        print("🔍 DEBUG: Setting status and opening dialog")
+        self.status_var.set("Opening GitHub repository dialog...")
+        
         dialog = GitHubRepoDialog(self.root, self.github_client)
+        print(f"🔍 DEBUG: Dialog created, result: {dialog.result}")
+        
         if dialog.result:
+            print("🔍 DEBUG: Dialog has result, proceeding with addition")
+            # Update status during addition
+            self.status_var.set("Adding repository to list...")
+            
             repo_name, repo_url = dialog.result
+            print(f"🔍 DEBUG: Extracted repo_name: {repo_name}, repo_url: {repo_url}")
+            
             repo_item = RepositoryItem(repo_name, "", repo_url, "github")
+            print(f"🔍 DEBUG: Created GitHub repo_item: {repo_item.name}, type: {repo_item.repo_type}")
+            
+            print(f"🔍 DEBUG: Repositories before append: {len(self.repositories)}")
             self.repositories.append(repo_item)
+            print(f"🔍 DEBUG: Repositories after append: {len(self.repositories)}")
+            
+            print("🔍 DEBUG: Calling update_repository_list()")
             self.update_repository_list()
+            print("🔍 DEBUG: Repository list updated")
             
             # Show success feedback
             total_repos = len(self.repositories)
+            self.status_var.set(f"Successfully added {repo_name} - Total: {total_repos} repositories")
+            print(f"🔍 DEBUG: About to show success message for {repo_name}")
             messagebox.showinfo("Repository Added Successfully", 
-                              f"✅ Added GitHub repository:\n{repo_name}\n\nTotal repositories: {total_repos}\nSelect it in the list and click 'Analyze Repository' for detailed analysis.")
+                              f"✅ Added GitHub repository:\n{repo_name}\n\nTotal repositories: {total_repos}")
             
             # Select the newly added repository
             for item in self.repo_tree.get_children():
@@ -429,6 +579,20 @@ class RepoReadmeGUI:
                     break
             
             self.logger.info(f"Added GitHub repository: {repo_name}", "GUI")
+            
+            # Automatically analyze the newly added GitHub repository
+            if messagebox.askyesno("Auto-Analyze Repository", 
+                                 f"Would you like to automatically analyze '{repo_name}' now?\n\nThis will clone the repository and extract project information."):
+                # Update status and start analysis
+                self.status_var.set(f"Starting analysis of {repo_name}...")
+                self.selected_repo = repo_item  # Set the selected repo
+                self.analyze_selected_repository()
+            else:
+                # Reset status to ready if user declined analysis
+                self.status_var.set("Ready - Repository added successfully")
+        else:
+            # Dialog was cancelled, reset status
+            self.status_var.set("Ready - Add repository cancelled")
     
     def remove_repository(self):
         """Remove selected repository."""
@@ -449,12 +613,17 @@ class RepoReadmeGUI:
     
     def update_repository_list(self):
         """Update the repository list display."""
+        print(f"🔍 DEBUG: update_repository_list() called with {len(self.repositories)} repositories")
+        
         # Clear existing items
-        for item in self.repo_tree.get_children():
+        existing_items = self.repo_tree.get_children()
+        print(f"🔍 DEBUG: Clearing {len(existing_items)} existing items from tree")
+        for item in existing_items:
             self.repo_tree.delete(item)
         
         # Add repositories
-        for repo in self.repositories:
+        for i, repo in enumerate(self.repositories):
+            print(f"🔍 DEBUG: Adding repo {i+1}: {repo.name} (type: {repo.repo_type}, status: {repo.status})")
             type_icon = "📁" if repo.repo_type == "local" else "🐙"
             status_icon = {
                 "pending": "⏳",
@@ -463,8 +632,11 @@ class RepoReadmeGUI:
                 "error": "❌"
             }.get(repo.status, "❓")
             
-            self.repo_tree.insert('', 'end', text=f"{type_icon} {repo.name}",
+            tree_item = self.repo_tree.insert('', 'end', text=f"{type_icon} {repo.name}",
                                 values=(repo.repo_type, f"{status_icon} {repo.status}"))
+            print(f"🔍 DEBUG: Inserted tree item: {tree_item}")
+        
+        print(f"🔍 DEBUG: Repository list update completed. Tree now has {len(self.repo_tree.get_children())} items")
     
     def on_repository_select(self, event):
         """Handle repository selection."""
@@ -807,9 +979,8 @@ class RepoReadmeGUI:
             readme_content = self.template_engine.generate_readme(self.selected_repo.metadata, config)
             self.selected_repo.generated_readme = readme_content
             
-            # Update preview
-            self.preview_text.delete('1.0', tk.END)
-            self.preview_text.insert('1.0', readme_content)
+            # Update preview with syntax highlighting
+            self._update_preview_with_highlighting(readme_content)
             
             # Switch to preview tab
             self.notebook.select(1)
@@ -822,27 +993,48 @@ class RepoReadmeGUI:
     
     def save_readme(self):
         """Save the generated README to file."""
-        if not self.selected_repo or not self.selected_repo.generated_readme:
-            messagebox.showwarning("No README", "Generate a README first.")
+        if not self.selected_repo:
+            messagebox.showwarning("No Selection", "Please select a repository first.")
             return
         
-        # Default filename
-        default_name = f"{self.selected_repo.name}_README.md"
+        # Check if we have a README to save (either generated or from preview)
+        readme_content = ""
+        if self.selected_repo.generated_readme:
+            readme_content = self.selected_repo.generated_readme
+        else:
+            # Try to get content from preview area
+            preview_content = self.preview_text.get('1.0', tk.END).strip()
+            if preview_content and preview_content != "Select a repository and configure template to see preview...":
+                readme_content = preview_content
+            else:
+                messagebox.showwarning("No README", "Generate a README first.")
+                return
         
-        # Get save location
+        # Create output directory if it doesn't exist
+        output_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Default filename with sanitized repo name
+        safe_name = re.sub(r'[^\w\-_.]', '_', self.selected_repo.name)
+        default_name = f"{safe_name}_README.md"
+        
+        # Get save location, defaulting to output directory
         file_path = filedialog.asksaveasfilename(
             title="Save README As",
+            initialdir=output_dir,
             defaultextension=".md",
             filetypes=[("Markdown files", "*.md"), ("Text files", "*.txt"), ("All files", "*.*")],
-            initialfilename=default_name
+            initialfile=default_name
         )
         
         if file_path:
             try:
                 with open(file_path, 'w', encoding='utf-8') as f:
-                    f.write(self.selected_repo.generated_readme)
+                    f.write(readme_content)
                 
-                messagebox.showinfo("Success", f"README saved to {file_path}")
+                messagebox.showinfo("Success", f"README saved successfully!\n\n📁 Location: {file_path}")
+                self.status_var.set(f"README saved to {os.path.basename(file_path)}")
+                
                 self.logger.log_readme_generation(
                     self.selected_repo.name, self.template_var.get(), file_path, True
                 )
@@ -851,10 +1043,67 @@ class RepoReadmeGUI:
                 messagebox.showerror("Save Error", f"Failed to save README: {str(e)}")
                 self.logger.error(f"README save failed: {e}", "SAVE", e)
     
+    # Template Management
+    
+    def update_template_description(self):
+        """Update the template description label."""
+        template = self.template_var.get()
+        description = self.template_engine.get_template_description(template)
+        self.template_desc_var.set(description)
+    
+    def open_template_builder(self):
+        """Open the custom template builder dialog."""
+        try:
+            result = create_custom_template_builder(self.root)
+            if result:
+                # Add the custom template to the available templates
+                custom_name = f"custom_{result.name.lower().replace(' ', '_')}"
+                
+                # Update template dropdown
+                current_values = list(self.template_combo['values'])
+                if custom_name not in current_values:
+                    current_values.append(custom_name)
+                    self.template_combo['values'] = current_values
+                
+                # Select the new template
+                self.template_var.set(custom_name)
+                self.update_template_description()
+                self.on_template_change()
+                
+                messagebox.showinfo("Success", f"Custom template '{result.name}' created successfully!")
+                
+        except Exception as e:
+            messagebox.showerror("Template Builder Error", f"Failed to open template builder: {str(e)}")
+    
+    def manage_templates(self):
+        """Open the template management dialog."""
+        try:
+            from pathlib import Path
+            import subprocess
+            import platform
+            
+            # Open the custom templates folder
+            templates_dir = Path.home() / ".reporeadme" / "custom_templates"
+            templates_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Open folder in file manager
+            if platform.system() == "Windows":
+                os.startfile(str(templates_dir))
+            elif platform.system() == "Darwin":  # macOS
+                subprocess.call(["open", str(templates_dir)])
+            else:  # Linux
+                subprocess.call(["xdg-open", str(templates_dir)])
+                
+            messagebox.showinfo("Templates", f"Custom templates folder opened:\n{templates_dir}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open templates folder: {str(e)}")
+    
     # Event Handlers
     
     def on_template_change(self):
         """Handle template selection change."""
+        self.update_template_description()
         if self.selected_repo and self.selected_repo.metadata:
             self.refresh_preview()
     
@@ -866,8 +1115,10 @@ class RepoReadmeGUI:
     def refresh_preview(self):
         """Refresh the README preview."""
         if not self.selected_repo or not self.selected_repo.metadata:
+            self.preview_text.config(state='normal')
             self.preview_text.delete('1.0', tk.END)
-            self.preview_text.insert('1.0', "Select and analyze a repository to see preview...")
+            self.preview_text.insert('1.0', "Select and analyze a repository to see preview...\n\nOnce you've analyzed a repository, your professional README will appear here with:\n✨ Beautiful syntax highlighting\n🎨 GitHub-style formatting\n📋 Copy-to-clipboard functionality")
+            self.preview_text.config(state='disabled')
             return
         
         try:
@@ -888,13 +1139,102 @@ class RepoReadmeGUI:
             # Generate preview
             preview_content = self.template_engine.generate_readme(self.selected_repo.metadata, config)
             
-            # Update preview
-            self.preview_text.delete('1.0', tk.END)
-            self.preview_text.insert('1.0', preview_content)
+            # Update preview with syntax highlighting
+            self._update_preview_with_highlighting(preview_content)
             
         except Exception as e:
             self.preview_text.delete('1.0', tk.END)
             self.preview_text.insert('1.0', f"Preview Error: {str(e)}")
+    
+    def _update_preview_with_highlighting(self, content: str):
+        """Update preview with markdown syntax highlighting."""
+        self.preview_text.config(state='normal')
+        self.preview_text.delete('1.0', tk.END)
+        
+        lines = content.split('\n')
+        current_line = 1
+        in_code_block = False
+        in_table = False
+        
+        for line in lines:
+            line_start = self.preview_text.index(tk.END + "-1c linestart")
+            
+            # Insert the line first
+            self.preview_text.insert(tk.END, line + '\n')
+            
+            line_end = self.preview_text.index(tk.END + "-1c lineend")
+            
+            # Apply line-level highlighting
+            if line.strip().startswith('```'):
+                in_code_block = not in_code_block
+                self.preview_text.tag_add("code_block", line_start, line_end)
+            elif in_code_block:
+                self.preview_text.tag_add("code_block", line_start, line_end)
+            elif line.startswith('# '):
+                self.preview_text.tag_add("h1", line_start, line_end)
+            elif line.startswith('## '):
+                self.preview_text.tag_add("h2", line_start, line_end)
+            elif line.startswith('### '):
+                self.preview_text.tag_add("h3", line_start, line_end)
+            elif line.startswith('> '):
+                self.preview_text.tag_add("quote", line_start, line_end)
+            elif line.strip().startswith('- ') or line.strip().startswith('* '):
+                self.preview_text.tag_add("list_item", line_start, line_end)
+            elif line.startswith('|') and '|' in line[1:]:
+                # Table detection
+                in_table = True
+                if '---' in line:
+                    self.preview_text.tag_add("table_header", line_start, line_end)
+                else:
+                    self.preview_text.tag_add("table_row", line_start, line_end)
+            elif line.strip() == '---':
+                self.preview_text.tag_add("separator", line_start, line_end)
+            else:
+                in_table = False
+            
+            # Apply inline highlighting if not in code block
+            if not in_code_block:
+                self._apply_inline_highlighting(line, line_start, current_line)
+            
+            current_line += 1
+        
+        self.preview_text.config(state='disabled')
+    
+    def _apply_inline_highlighting(self, line: str, line_start: str, line_num: int):
+        """Apply inline highlighting for code, bold, links, etc."""
+        # Inline code `code`
+        import re
+        for match in re.finditer(r'`([^`]+)`', line):
+            start_col = match.start()
+            end_col = match.end()
+            start_pos = f"{line_num}.{start_col}"
+            end_pos = f"{line_num}.{end_col}"
+            self.preview_text.tag_add("code", start_pos, end_pos)
+        
+        # Bold **text**
+        for match in re.finditer(r'\*\*([^*]+)\*\*', line):
+            start_col = match.start()
+            end_col = match.end()
+            start_pos = f"{line_num}.{start_col}"
+            end_pos = f"{line_num}.{end_col}"
+            self.preview_text.tag_add("bold", start_pos, end_pos)
+        
+        # Links [text](url)
+        for match in re.finditer(r'\[([^\]]+)\]\([^)]+\)', line):
+            start_col = match.start()
+            end_col = match.end()
+            start_pos = f"{line_num}.{start_col}"
+            end_pos = f"{line_num}.{end_col}"
+            self.preview_text.tag_add("link", start_pos, end_pos)
+        
+        # Badge images ![alt](url)
+        for match in re.finditer(r'!\[([^\]]*)\]\([^)]+\)', line):
+            start_col = match.start()
+            end_col = match.end()
+            start_pos = f"{line_num}.{start_col}"
+            end_pos = f"{line_num}.{end_col}"
+            self.preview_text.tag_add("badge", start_pos, end_pos)
+    
     
     # Batch Operations
     
@@ -924,8 +1264,21 @@ class RepoReadmeGUI:
                     repo.metadata = metadata
                     repo.status = "completed"
                 else:
-                    # GitHub analysis would go here
-                    pass
+                    # Analyze GitHub repository
+                    temp_path = None
+                    try:
+                        # Clone the repository to temporary location
+                        temp_path = self._clone_github_repository(repo)
+                        
+                        # Analyze the cloned repository
+                        metadata = self.analyzer.analyze_repository(temp_path, repo.name, repo.url)
+                        repo.metadata = metadata
+                        repo.status = "completed"
+                        
+                    finally:
+                        # Clean up temporary directory
+                        if temp_path:
+                            self._cleanup_temp_directory(temp_path)
             
             except Exception as e:
                 repo.status = "error"
@@ -1073,8 +1426,10 @@ class GitHubRepoDialog:
     """Dialog for adding GitHub repositories."""
     
     def __init__(self, parent, github_client):
+        print("🔍 DEBUG: GitHubRepoDialog.__init__() called")
         self.result = None
         self.github_client = github_client
+        print(f"🔍 DEBUG: Dialog initialized with github_client: {github_client is not None}")
         
         # Create dialog
         self.dialog = tk.Toplevel(parent)
@@ -1100,14 +1455,33 @@ class GitHubRepoDialog:
         ttk.Label(self.dialog, text="Example: https://github.com/username/repository", 
                  foreground='gray').pack()
         
+        # Progress bar (initially hidden)
+        self.progress_frame = ttk.Frame(self.dialog)
+        self.progress_label = ttk.Label(self.progress_frame, text="Validating repository...")
+        self.progress_label.pack(pady=5)
+        self.progress_bar = ttk.Progressbar(self.progress_frame, mode='indeterminate')
+        self.progress_bar.pack(fill='x', padx=20)
+        
         # Buttons
-        button_frame = ttk.Frame(self.dialog)
-        ttk.Button(button_frame, text="Add", command=self.on_add).pack(side='left', padx=5)
-        ttk.Button(button_frame, text="Cancel", command=self.on_cancel).pack(side='left')
-        button_frame.pack(pady=20)
+        self.button_frame = ttk.Frame(self.dialog)
+        self.add_button = ttk.Button(self.button_frame, text="Add", command=self.on_add)
+        self.add_button.pack(side='left', padx=5)
+        self.cancel_button = ttk.Button(self.button_frame, text="Cancel", command=self.on_cancel)
+        self.cancel_button.pack(side='left')
+        self.button_frame.pack(pady=20)
         
         # Bind Enter key
         self.dialog.bind('<Return>', lambda e: self.on_add())
+        
+        # Wait for dialog to complete
+        print("🔍 DEBUG: Starting dialog wait_window()")
+        parent.wait_window(self.dialog)
+        print(f"🔍 DEBUG: Dialog completed, final result: {self.result}")
+        
+        # Additional debug info about the result
+        if self.result:
+            repo_name, repo_url = self.result
+            print(f"🔍 DEBUG: Successfully captured result - Name: '{repo_name}', URL: '{repo_url}'")
     
     def on_add(self):
         """Handle add button click."""
@@ -1136,29 +1510,121 @@ class GitHubRepoDialog:
             
             repo_name = f"{owner}/{repo}"
             
-            # Test if repository exists (if github_client is available)
-            if hasattr(self, 'github_client') and self.github_client:
-                try:
-                    test_repo = self.github_client.get_repo(repo_name)
-                    # If we get here, repo exists
-                    messagebox.showinfo("Repository Found", 
-                                      f"✅ Repository found: {test_repo.full_name}\n{test_repo.description or 'No description'}\n\nAdding to repository list...")
-                except Exception as e:
-                    if "404" in str(e):
-                        messagebox.showerror("Repository Not Found", 
-                                           f"❌ Repository '{repo_name}' not found or is private.\nPlease check the URL and try again.")
-                        return
-                    else:
-                        # Other API error, but let's continue anyway
-                        messagebox.showwarning("Validation Warning", 
-                                             f"⚠️  Could not validate repository '{repo_name}'.\nProceeding anyway...")
+            # Start validation in background thread
+            self._start_validation(repo_name, url)
             
-            self.result = (repo_name, url)
-            self.dialog.destroy()
-        
         except Exception as e:
             messagebox.showerror("Invalid URL", 
                                f"Please enter a valid GitHub repository URL.\nError: {str(e)}\n\nExample: https://github.com/username/repository")
+    
+    def _start_validation(self, repo_name, url):
+        """Start repository validation in background thread."""
+        # Show progress UI
+        self.progress_frame.pack(pady=10)
+        self.progress_bar.start()
+        
+        # Disable buttons during validation
+        self.add_button.config(state='disabled')
+        self.cancel_button.config(text='Cancel', command=self._cancel_validation)
+        
+        # Start validation thread
+        import threading
+        self.validation_thread = threading.Thread(
+            target=self._validate_repository_thread,
+            args=(repo_name, url),
+            daemon=True
+        )
+        self.validation_cancelled = False
+        self.validation_thread.start()
+    
+    def _validate_repository_thread(self, repo_name, url):
+        """Validate repository in background thread."""
+        try:
+            # Update progress
+            self.dialog.after(0, lambda: self.progress_label.config(text=f"Validating {repo_name}..."))
+            
+            # Test if repository exists (if github_client is available)
+            if hasattr(self, 'github_client') and self.github_client:
+                try:
+                    # Add a timeout for the GitHub API call
+                    import socket
+                    socket.setdefaulttimeout(10)  # 10 second timeout
+                    
+                    test_repo = self.github_client.get_repo(repo_name)
+                    
+                    if self.validation_cancelled:
+                        return
+                    
+                    # Repository found - show success and close dialog
+                    self.dialog.after(0, lambda: self._validation_success(repo_name, url, test_repo))
+                    
+                except Exception as e:
+                    if self.validation_cancelled:
+                        return
+                        
+                    if "404" in str(e) or "Not Found" in str(e):
+                        self.dialog.after(0, lambda: self._validation_error(
+                            f"❌ Repository '{repo_name}' not found or is private.\nPlease check the URL and try again."))
+                    else:
+                        # Other API error (timeout, network, etc.), but let's continue anyway
+                        print(f"🔍 DEBUG: GitHub API error (continuing anyway): {e}")
+                        self.dialog.after(0, lambda: self._validation_warning(repo_name, url))
+            else:
+                # No GitHub client, proceed without validation
+                if self.validation_cancelled:
+                    return
+                self.dialog.after(0, lambda: self._validation_success(repo_name, url, None))
+                
+        except Exception as e:
+            if not self.validation_cancelled:
+                self.dialog.after(0, lambda: self._validation_error(f"Validation error: {str(e)}"))
+    
+    def _validation_success(self, repo_name, url, test_repo):
+        """Handle successful validation."""
+        print(f"🔍 DEBUG: _validation_success called for {repo_name}")
+        self._hide_progress()
+        
+        if test_repo:
+            print(f"🔍 DEBUG: Test repo found: {test_repo.full_name}")
+            messagebox.showinfo("Repository Found", 
+                              f"✅ Repository found: {test_repo.full_name}\n{test_repo.description or 'No description'}")
+        else:
+            print("🔍 DEBUG: No test repo (proceeding without GitHub validation)")
+        
+        print(f"🔍 DEBUG: Setting dialog result: ({repo_name}, {url})")
+        self.result = (repo_name, url)
+        print("🔍 DEBUG: Destroying dialog")
+        self.dialog.destroy()
+    
+    def _validation_warning(self, repo_name, url):
+        """Handle validation warning (API error but continue)."""
+        print(f"🔍 DEBUG: _validation_warning called for {repo_name}")
+        self._hide_progress()
+        messagebox.showwarning("Validation Warning", 
+                             f"⚠️  Could not validate repository '{repo_name}'.\nProceeding anyway...")
+        print(f"🔍 DEBUG: Setting dialog result (warning): ({repo_name}, {url})")
+        self.result = (repo_name, url)
+        print("🔍 DEBUG: Destroying dialog (warning)")
+        self.dialog.destroy()
+    
+    def _validation_error(self, error_msg):
+        """Handle validation error."""
+        print(f"🔍 DEBUG: _validation_error called: {error_msg}")
+        self._hide_progress()
+        messagebox.showerror("Repository Not Found", error_msg)
+        print("🔍 DEBUG: Error dialog shown, dialog result remains None")
+    
+    def _cancel_validation(self):
+        """Cancel ongoing validation."""
+        self.validation_cancelled = True
+        self._hide_progress()
+    
+    def _hide_progress(self):
+        """Hide progress UI and restore buttons."""
+        self.progress_bar.stop()
+        self.progress_frame.pack_forget()
+        self.add_button.config(state='normal')
+        self.cancel_button.config(text='Cancel', command=self.on_cancel)
     
     def on_cancel(self):
         """Handle cancel button click."""

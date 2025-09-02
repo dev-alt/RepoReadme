@@ -227,6 +227,13 @@ class RepositoryAnalyzer:
         self._analyze_git_history(repo_path, metadata)
         self._analyze_code_metrics(repo_path, metadata)
         self._extract_features_and_usage(repo_path, metadata)
+        
+        # ENHANCED: Add intelligent content extraction
+        self._extract_intelligent_description(repo_path, metadata)
+        self._detect_advanced_project_features(repo_path, metadata)
+        self._generate_smart_installation_instructions(repo_path, metadata)
+        self._extract_code_usage_examples(repo_path, metadata)
+        
         self._calculate_quality_score(metadata)
         
         duration = (time.time() - start_time) * 1000
@@ -746,3 +753,285 @@ class RepositoryAnalyzer:
                 return 'Custom'
         except Exception:
             return 'Unknown'
+    
+    def _extract_intelligent_description(self, repo_path: str, metadata: ProjectMetadata):
+        """Extract intelligent project description from multiple sources."""
+        descriptions = []
+        
+        # 1. Check existing README for tagline
+        readme_path = Path(repo_path) / 'README.md'
+        if readme_path.exists():
+            try:
+                content = readme_path.read_text(encoding='utf-8')
+                lines = content.split('\n')
+                for i, line in enumerate(lines[:15]):  # Check first 15 lines
+                    if line.startswith('>'):  # Often used for taglines
+                        desc = line.strip('> ').strip()
+                        if len(desc) > 15 and not any(skip in desc.lower() for skip in ['installation', 'usage', 'getting started']):
+                            descriptions.append(desc)
+                    elif i > 0 and line and not line.startswith('#') and not line.startswith('[') and not line.startswith('!'):
+                        if 20 < len(line) < 200 and not line.startswith('```'):
+                            descriptions.append(line.strip())
+                    # Look for description after project name
+                    if line.startswith('# ') and i + 1 < len(lines):
+                        next_line = lines[i + 1].strip()
+                        if next_line and not next_line.startswith('#') and len(next_line) > 20:
+                            descriptions.append(next_line)
+            except:
+                pass
+        
+        # 2. Check main module docstrings (Python)
+        if metadata.primary_language == 'python':
+            main_files = ['main.py', 'app.py', '__init__.py', f'{metadata.name}.py']
+            for filename in main_files:
+                filepath = Path(repo_path) / filename
+                if filepath.exists():
+                    try:
+                        content = filepath.read_text(encoding='utf-8')
+                        # Extract module docstring
+                        docstring_match = re.search(r'"""([^"]+)"""', content)
+                        if docstring_match:
+                            docstring = docstring_match.group(1).strip()
+                            lines = [line.strip() for line in docstring.split('\n') if line.strip()]
+                            if lines:
+                                first_line = lines[0]
+                                if len(first_line) > 20 and len(first_line) < 200:
+                                    descriptions.append(first_line)
+                    except:
+                        pass
+        
+        # 3. Check package.json description (JavaScript/Node)
+        if metadata.primary_language in ['javascript', 'typescript']:
+            package_json = Path(repo_path) / 'package.json'
+            if package_json.exists():
+                try:
+                    data = json.loads(package_json.read_text())
+                    if 'description' in data and data['description']:
+                        descriptions.append(data['description'])
+                except:
+                    pass
+        
+        # 4. Intelligent description based on project type and features
+        if not descriptions:
+            if metadata.project_type == 'gui-application':
+                descriptions.append(f"Professional GUI application built with {metadata.primary_language.title()}")
+            elif metadata.project_type == 'web-app':
+                frameworks = ', '.join(metadata.frameworks) if metadata.frameworks else metadata.primary_language.title()
+                descriptions.append(f"Web application built with {frameworks}")
+            elif metadata.project_type == 'cli-tool':
+                descriptions.append(f"Command-line tool for {metadata.name} operations")
+            elif metadata.project_type == 'library':
+                descriptions.append(f"{metadata.primary_language.title()} library for {metadata.name} functionality")
+        
+        # Set the best description
+        if descriptions:
+            # Prefer longer, more descriptive ones
+            best_desc = max(descriptions, key=len)
+            metadata.description = best_desc[:200]  # Limit length
+    
+    def _detect_advanced_project_features(self, repo_path: str, metadata: ProjectMetadata):
+        """Detect advanced project features by analyzing the codebase."""
+        features = []
+        repo_path_obj = Path(repo_path)
+        
+        # Multi-platform and integration features
+        if any((repo_path_obj / f).exists() for f in ['github/', '.github/', 'gitlab/']):
+            features.append("Multi-Platform Repository Analysis")
+        
+        # Intelligent analysis features
+        frameworks_count = len(metadata.frameworks)
+        if frameworks_count >= 3:
+            features.append("Intelligent Technology Detection")
+            
+        # Template and generation features
+        template_indicators = ['template', 'generate', 'readme', 'doc']
+        if any(keyword in metadata.name.lower() for keyword in template_indicators):
+            features.extend([
+                "Professional Templates",
+                "Interactive GUI", 
+                "Batch Processing",
+                "Real-time Preview",
+                "Smart Caching",
+                "Export Options"
+            ])
+        
+        # GUI application features
+        if metadata.primary_language == 'python' and any(fw in ['tkinter', 'pyqt', 'pyside', 'kivy'] for fw in metadata.frameworks):
+            features.extend([
+                "User-friendly Interface with Modern Design Patterns",
+                "Interactive GUI with Progress Tracking",
+                "Real-time Analysis Updates with User Feedback"
+            ])
+        
+        # Web application features
+        if any(fw in ['flask', 'django', 'fastapi', 'express', 'react', 'vue', 'angular'] for fw in metadata.frameworks):
+            features.extend([
+                "RESTful API Integration",
+                "Modern Web Interface",
+                "Responsive Design"
+            ])
+        
+        # Architecture and system features
+        if metadata.structure:
+            structure_count = len(metadata.structure)
+            if structure_count >= 4:
+                features.append("Modular and Extensible Architecture")
+                
+        # Configuration and settings
+        config_files = ['config/', 'settings.py', 'config.json', 'config.yaml', '.env']
+        if any((repo_path_obj / f).exists() for f in config_files):
+            features.append("Comprehensive Configuration System")
+        
+        # Logging and monitoring
+        if any((repo_path_obj / d).exists() for d in ['logs/', 'utils/logger.py', 'logging/']):
+            features.append("Advanced Logging and Monitoring System")
+        
+        # Testing framework
+        if metadata.has_tests:
+            features.append("Automated Testing Framework")
+        
+        # Documentation
+        if metadata.has_docs:
+            features.append("Comprehensive Documentation")
+        
+        # CI/CD and DevOps
+        if metadata.has_ci:
+            features.append("Continuous Integration Pipeline")
+            
+        if metadata.has_docker:
+            features.append("Containerization Support")
+        
+        # Performance and caching
+        if any(keyword in str(repo_path_obj).lower() for keyword in ['cache', 'performance', 'optimization']):
+            features.append("Performance Optimization and Caching")
+        
+        # Error handling and reliability
+        error_handling_indicators = ['try', 'except', 'error', 'exception']
+        python_files = list(repo_path_obj.rglob('*.py'))[:10]  # Check first 10 Python files
+        has_error_handling = False
+        for py_file in python_files:
+            try:
+                content = py_file.read_text(encoding='utf-8', errors='ignore')
+                if any(keyword in content.lower() for keyword in error_handling_indicators):
+                    has_error_handling = True
+                    break
+            except:
+                pass
+        
+        if has_error_handling:
+            features.append("Robust Error Handling and Recovery")
+        
+        # Remove duplicates and limit features
+        metadata.features = list(dict.fromkeys(features))[:8]
+    
+    def _generate_smart_installation_instructions(self, repo_path: str, metadata: ProjectMetadata):
+        """Generate intelligent installation instructions based on project setup."""
+        instructions = []
+        repo_path_obj = Path(repo_path)
+        
+        # 1. Repository cloning (always first)
+        if metadata.repository_url:
+            instructions.append(f"git clone {metadata.repository_url}")
+            instructions.append(f"cd {metadata.name}")
+        
+        # 2. Language-specific setup
+        if metadata.primary_language == 'python':
+            # Check for requirements.txt or pyproject.toml
+            if (repo_path_obj / 'requirements.txt').exists():
+                instructions.append("pip install -r requirements.txt")
+            elif (repo_path_obj / 'pyproject.toml').exists():
+                instructions.append("pip install -e .")
+            elif (repo_path_obj / 'setup.py').exists():
+                instructions.append("pip install -e .")
+            else:
+                # Generate based on detected dependencies
+                if metadata.dependencies.get('pip'):
+                    deps = metadata.dependencies['pip'][:5]  # First 5 deps
+                    if deps:
+                        instructions.append(f"pip install {' '.join(deps)}")
+        
+        elif metadata.primary_language in ['javascript', 'typescript']:
+            if (repo_path_obj / 'package.json').exists():
+                instructions.append("npm install")
+            elif (repo_path_obj / 'yarn.lock').exists():
+                instructions.append("yarn install")
+        
+        # 3. Application startup
+        if metadata.primary_language == 'python':
+            # Look for main entry point
+            main_files = ['main.py', 'app.py', 'run.py', f'{metadata.name}.py']
+            for main_file in main_files:
+                if (repo_path_obj / main_file).exists():
+                    instructions.append(f"python {main_file}")
+                    break
+            else:
+                # Default based on project type
+                if metadata.project_type == 'web-app':
+                    instructions.append("python app.py")
+                else:
+                    instructions.append("python main.py")
+        
+        elif metadata.primary_language in ['javascript', 'typescript']:
+            instructions.append("npm start")
+        
+        metadata.installation_commands = instructions
+    
+    def _extract_code_usage_examples(self, repo_path: str, metadata: ProjectMetadata):
+        """Extract usage examples from code comments, docstrings, and examples."""
+        examples = []
+        repo_path_obj = Path(repo_path)
+        
+        # 1. Look for examples directory
+        examples_dirs = ['examples', 'example', 'samples', 'demo', 'demos']
+        for dirname in examples_dirs:
+            examples_dir = repo_path_obj / dirname
+            if examples_dir.exists() and examples_dir.is_dir():
+                py_files = list(examples_dir.glob('*.py'))[:3]  # Max 3 examples
+                for file_path in py_files:
+                    try:
+                        content = file_path.read_text(encoding='utf-8')
+                        # Extract meaningful code blocks
+                        lines = content.split('\n')
+                        code_block = []
+                        for line in lines[:20]:  # First 20 lines
+                            if line.strip() and not line.strip().startswith('#'):
+                                code_block.append(line)
+                        if len(code_block) >= 3:
+                            examples.append('\n'.join(code_block[:10]))
+                    except:
+                        pass
+        
+        # 2. Extract from main files (Python docstrings)
+        if metadata.primary_language == 'python':
+            main_files = ['main.py', 'app.py', '__init__.py']
+            for filename in main_files:
+                filepath = repo_path_obj / filename
+                if filepath.exists():
+                    try:
+                        content = filepath.read_text(encoding='utf-8')
+                        # Look for usage examples in docstrings
+                        example_patterns = [
+                            r'Example[s]?:?\s*\n((?:\s*[^\n]+\n)*)',
+                            r'Usage:?\s*\n((?:\s*[^\n]+\n)*)',
+                            r'```python\s*\n((?:[^\n`]+\n)*)',
+                        ]
+                        for pattern in example_patterns:
+                            matches = re.findall(pattern, content, re.MULTILINE)
+                            for match in matches[:2]:  # Max 2 per file
+                                cleaned = match.strip()
+                                if len(cleaned) > 20:
+                                    examples.append(cleaned)
+                    except:
+                        pass
+        
+        # 3. Generate example based on project type
+        if not examples and metadata.project_type == 'gui-application':
+            if metadata.primary_language == 'python':
+                example = f"""# Launch the GUI application
+from {metadata.name.lower().replace('-', '_')} import main
+
+if __name__ == "__main__":
+    main()"""
+                examples.append(example)
+        
+        metadata.usage_examples = examples[:3]  # Limit to 3 examples
