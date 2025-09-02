@@ -19,6 +19,9 @@ from tkinter import ttk, filedialog, messagebox, scrolledtext
 import os
 import threading
 import time
+import tempfile
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
@@ -554,8 +557,24 @@ class RepoReadmeGUI:
             if repo_item.repo_type == "local":
                 metadata = self.analyzer.analyze_repository(repo_item.path, repo_item.name)
             else:
-                # For GitHub repos, use GitHub API to analyze
-                metadata = self._analyze_github_repository(repo_item)
+                # For GitHub repos, clone to temp directory and analyze
+                temp_path = None
+                try:
+                    # Update UI to show cloning status
+                    self.root.after(0, lambda: self._update_clone_status("Cloning repository..."))
+                    
+                    temp_path = self._clone_github_repository(repo_item)
+                    
+                    # Update UI to show analysis status  
+                    self.root.after(0, lambda: self._update_clone_status("Analyzing cloned repository..."))
+                    
+                    # Analyze the cloned repository
+                    metadata = self.analyzer.analyze_repository(temp_path, repo_item.name, repo_item.url)
+                    
+                finally:
+                    # Clean up temporary directory
+                    if temp_path:
+                        self._cleanup_temp_directory(temp_path)
             
             repo_item.metadata = metadata
             repo_item.status = "completed"
@@ -572,92 +591,62 @@ class RepoReadmeGUI:
         finally:
             self.is_analyzing = False
     
-    def _analyze_github_repository(self, repo_item: RepositoryItem) -> ProjectMetadata:
-        """Analyze a GitHub repository using the GitHub API."""
+    def _clone_github_repository(self, repo_item: RepositoryItem) -> str:
+        """Clone a GitHub repository to a temporary directory."""
         try:
-            # Parse repository owner and name from URL
-            url_parts = repo_item.url.rstrip('/').split('/')
-            if len(url_parts) >= 2:
-                owner = url_parts[-2]
-                repo_name = url_parts[-1]
-            else:
-                raise ValueError(f"Invalid GitHub URL format: {repo_item.url}")
+            # Create temporary directory for the cloned repo
+            temp_base = tempfile.mkdtemp(prefix="reporeadme_temp_")
+            repo_name_safe = repo_item.name.replace('/', '_')
+            temp_dir = os.path.join(temp_base, repo_name_safe)
             
-            # Get repository information from GitHub API
-            github_repo = self.github_client.get_repo(f"{owner}/{repo_name}")
+            # Clone the repository
+            self.logger.info(f"Cloning GitHub repository: {repo_item.url}", "GITHUB_CLONE")
             
-            # Create metadata from GitHub API data
-            metadata = ProjectMetadata()
-            metadata.name = github_repo.name
-            metadata.description = github_repo.description or ""
-            metadata.repository_url = github_repo.html_url
-            metadata.author = github_repo.owner.login
-            try:
-                metadata.license = github_repo.license.name if github_repo.license else ""
-            except:
-                metadata.license = ""
-            metadata.created_date = github_repo.created_at.strftime("%Y-%m-%d")
-            metadata.last_updated = github_repo.updated_at.strftime("%Y-%m-%d")
+            # Use git clone command
+            result = subprocess.run([
+                'git', 'clone', '--depth', '1', repo_item.url, temp_dir
+            ], capture_output=True, text=True, timeout=120)  # Increased timeout
             
-            # Get language information
-            languages = github_repo.get_languages()
-            total_bytes = sum(languages.values())
-            if total_bytes > 0:
-                metadata.languages = {
-                    lang: round((bytes_count / total_bytes) * 100, 1) 
-                    for lang, bytes_count in languages.items()
-                }
-                metadata.primary_language = max(languages.items(), key=lambda x: x[1])[0]
+            if result.returncode != 0:
+                # Cleanup on failure
+                shutil.rmtree(temp_base, ignore_errors=True)
+                raise Exception(f"Git clone failed: {result.stderr}")
             
-            # Get repository statistics
-            metadata.total_files = github_repo.size  # Approximation
-            metadata.total_lines = 0  # Not directly available via API
-            metadata.commits_count = github_repo.get_commits().totalCount
+            self.logger.info(f"Successfully cloned repository to: {temp_dir}", "GITHUB_CLONE")
+            return temp_dir
             
-            # Get additional repository information
-            metadata.stars_count = github_repo.stargazers_count
-            metadata.forks_count = github_repo.forks_count
-            metadata.open_issues = github_repo.open_issues_count
-            metadata.default_branch = github_repo.default_branch
-            
-            # Detect project type from language and topics
-            topics = list(github_repo.get_topics())
-            metadata.topics = topics
-            
-            # Basic project type detection
-            if metadata.primary_language:
-                lang_lower = metadata.primary_language.lower()
-                if lang_lower in ['python']:
-                    metadata.project_type = "python"
-                elif lang_lower in ['javascript', 'typescript']:
-                    metadata.project_type = "web"
-                elif lang_lower in ['java']:
-                    metadata.project_type = "java"
-                elif lang_lower in ['c', 'c++', 'cpp']:
-                    metadata.project_type = "cpp"
-                elif lang_lower in ['go']:
-                    metadata.project_type = "go"
-                else:
-                    metadata.project_type = "other"
-            
-            # Set has_readme based on GitHub repo data
-            try:
-                github_repo.get_readme()
-                metadata.has_readme = True
-            except:
-                metadata.has_readme = False
-            
-            self.logger.info(f"Successfully analyzed GitHub repository: {metadata.name}", "GITHUB_ANALYSIS")
-            return metadata
-            
+        except subprocess.TimeoutExpired:
+            # Cleanup on timeout
+            if 'temp_base' in locals():
+                shutil.rmtree(temp_base, ignore_errors=True)
+            raise Exception("Repository cloning timed out (2 minutes)")
         except Exception as e:
-            self.logger.error(f"Failed to analyze GitHub repository {repo_item.url}: {e}", "GITHUB_ANALYSIS")
-            # Return basic metadata on error
-            metadata = ProjectMetadata()
-            metadata.name = repo_item.name
-            metadata.repository_url = repo_item.url
-            metadata.description = f"GitHub repository (analysis failed: {str(e)})"
-            return metadata
+            self.logger.error(f"Failed to clone GitHub repository: {e}", "GITHUB_CLONE")
+            raise
+    
+    def _cleanup_temp_directory(self, temp_path: str):
+        """Clean up temporary directory."""
+        try:
+            if os.path.exists(temp_path):
+                # Clean up the parent temp directory (contains the cloned repo)
+                parent_temp = os.path.dirname(temp_path)
+                if parent_temp and "reporeadme_temp_" in parent_temp:
+                    shutil.rmtree(parent_temp, ignore_errors=True)
+                    self.logger.info(f"Cleaned up temporary directory: {parent_temp}", "CLEANUP")
+                else:
+                    # Fallback to just the repo directory
+                    shutil.rmtree(temp_path, ignore_errors=True)
+                    self.logger.info(f"Cleaned up temporary directory: {temp_path}", "CLEANUP")
+        except Exception as e:
+            self.logger.warning(f"Failed to cleanup temp directory {temp_path}: {e}", "CLEANUP")
+    
+    def _update_clone_status(self, message: str):
+        """Update the status message during cloning/analysis."""
+        if hasattr(self, 'progress_var'):
+            self.progress_var.set(message)
+        if hasattr(self, 'status_var'):
+            self.status_var.set(message)
+    
     
     def _update_analysis_ui(self, repo_item: RepositoryItem, status: str, error_msg: str = ""):
         """Update analysis UI elements."""
