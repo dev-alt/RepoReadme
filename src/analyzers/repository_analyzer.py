@@ -80,6 +80,15 @@ class ProjectMetadata:
     created_date: Optional[str] = None
     last_updated: Optional[str] = None
     
+    # GitHub-specific information
+    stars_count: int = 0
+    forks_count: int = 0
+    open_issues: int = 0
+    default_branch: str = "main"
+    topics: List[str] = field(default_factory=list)
+    commits_count: int = 0  # Alias for commits
+    has_readme: bool = False
+    
     # Features and capabilities
     features: List[str] = field(default_factory=list)
     installation_commands: List[str] = field(default_factory=list)

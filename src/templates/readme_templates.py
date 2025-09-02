@@ -300,7 +300,7 @@ class ReadmeTemplateEngine:
         # Footer
         content.append("---")
         content.append("")
-        content.append(f"**{metadata.name}** - Generated with ❤️ by [RepoReadme](https://github.com/yourusername/reporeadme)")
+        content.append(f"**{metadata.name}** - Generated with ❤️ by [RepoReadme](https://github.com/dev-alt/RepoReadme)")
         
         return "\n".join(content)
     

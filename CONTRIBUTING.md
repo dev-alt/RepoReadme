@@ -6,7 +6,7 @@ Thank you for your interest in contributing to RepoReadme! This project uses mod
 
 1. **Fork and Clone**
    ```bash
-   git clone https://github.com/yourusername/reporeadme.git
+   git clone https://github.com/dev-alt/RepoReadme.git
    cd reporeadme
    ```
 

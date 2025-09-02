@@ -2,7 +2,7 @@
 
 > Professional README generation for your repositories with intelligent analysis and beautiful templates
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg?style=flat)](https://github.com/yourusername/reporeadme)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg?style=flat)](https://github.com/dev-alt/RepoReadme)
 [![Language](https://img.shields.io/badge/language-python-blue.svg?style=flat)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat)](LICENSE)
 
@@ -57,7 +57,7 @@
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/reporeadme.git
+git clone https://github.com/dev-alt/RepoReadme.git
 cd reporeadme
 ```
 

@@ -158,6 +158,8 @@ class RepoReadmeGUI:
                   command=self.add_local_repository, style='Action.TButton').pack(side='left', padx=5)
         ttk.Button(button_frame, text="🐙 Add GitHub Repo", 
                   command=self.add_github_repository, style='Action.TButton').pack(side='left', padx=5)
+        ttk.Button(button_frame, text="📚 Load My Repos", 
+                  command=self.load_user_repositories, style='Action.TButton').pack(side='left', padx=5)
         ttk.Button(button_frame, text="🗑️ Remove", 
                   command=self.remove_repository, style='Action.TButton').pack(side='left', padx=5)
         
@@ -400,6 +402,58 @@ class RepoReadmeGUI:
             self.update_repository_list()
             self.logger.info(f"Added GitHub repository: {repo_name}", "GUI")
     
+    def load_user_repositories(self):
+        """Load all repositories from the authenticated user."""
+        if self.github_client is None:
+            messagebox.showerror("GitHub Unavailable", 
+                               "GitHub client not available. Please ensure PyGithub is installed.")
+            return
+        
+        # Show loading dialog
+        loading_dialog = LoadingDialog(self.root, "Loading your GitHub repositories...")
+        
+        def load_repos_thread():
+            try:
+                # Get user's repositories
+                user = self.github_client.get_user()
+                repos = list(user.get_repos(type='owner', sort='updated'))
+                
+                # Add repositories to the list
+                for repo in repos:
+                    repo_item = RepositoryItem(
+                        name=f"{repo.owner.login}/{repo.name}",
+                        path="", 
+                        url=repo.html_url,
+                        repo_type="github"
+                    )
+                    # Check if repo already exists
+                    if not any(r.url == repo.html_url for r in self.repositories):
+                        self.repositories.append(repo_item)
+                
+                # Update UI on main thread
+                self.root.after(0, lambda: self._finish_load_repos(loading_dialog, len(repos)))
+                
+            except Exception as e:
+                self.root.after(0, lambda: self._handle_load_repos_error(loading_dialog, str(e)))
+        
+        # Start loading in background thread
+        threading.Thread(target=load_repos_thread, daemon=True).start()
+    
+    def _finish_load_repos(self, loading_dialog, repo_count):
+        """Finish loading user repositories."""
+        loading_dialog.close()
+        self.update_repository_list()
+        messagebox.showinfo("Repositories Loaded", 
+                          f"Successfully loaded {repo_count} repositories from your GitHub account!")
+        self.logger.info(f"Loaded {repo_count} user repositories from GitHub", "GUI")
+    
+    def _handle_load_repos_error(self, loading_dialog, error_msg):
+        """Handle error during repository loading."""
+        loading_dialog.close()
+        messagebox.showerror("Loading Failed", 
+                           f"Failed to load repositories from GitHub:\n{error_msg}")
+        self.logger.error(f"Failed to load user repositories: {error_msg}", "GUI")
+    
     def remove_repository(self):
         """Remove selected repository."""
         selection = self.repo_tree.selection()
@@ -529,10 +583,8 @@ class RepoReadmeGUI:
             if repo_item.repo_type == "local":
                 metadata = self.analyzer.analyze_repository(repo_item.path, repo_item.name)
             else:
-                # For GitHub repos, would need to clone or use API
-                # Simplified for this example
-                metadata = ProjectMetadata()
-                metadata.name = repo_item.name
+                # For GitHub repos, use GitHub API to analyze
+                metadata = self._analyze_github_repository(repo_item)
             
             repo_item.metadata = metadata
             repo_item.status = "completed"
@@ -547,6 +599,93 @@ class RepoReadmeGUI:
         
         finally:
             self.is_analyzing = False
+    
+    def _analyze_github_repository(self, repo_item: RepositoryItem) -> ProjectMetadata:
+        """Analyze a GitHub repository using the GitHub API."""
+        try:
+            # Parse repository owner and name from URL
+            url_parts = repo_item.url.rstrip('/').split('/')
+            if len(url_parts) >= 2:
+                owner = url_parts[-2]
+                repo_name = url_parts[-1]
+            else:
+                raise ValueError(f"Invalid GitHub URL format: {repo_item.url}")
+            
+            # Get repository information from GitHub API
+            github_repo = self.github_client.get_repo(f"{owner}/{repo_name}")
+            
+            # Create metadata from GitHub API data
+            metadata = ProjectMetadata()
+            metadata.name = github_repo.name
+            metadata.description = github_repo.description or ""
+            metadata.repository_url = github_repo.html_url
+            metadata.author = github_repo.owner.login
+            try:
+                metadata.license = github_repo.license.name if github_repo.license else ""
+            except:
+                metadata.license = ""
+            metadata.created_date = github_repo.created_at.strftime("%Y-%m-%d")
+            metadata.last_updated = github_repo.updated_at.strftime("%Y-%m-%d")
+            
+            # Get language information
+            languages = github_repo.get_languages()
+            total_bytes = sum(languages.values())
+            if total_bytes > 0:
+                metadata.languages = {
+                    lang: round((bytes_count / total_bytes) * 100, 1) 
+                    for lang, bytes_count in languages.items()
+                }
+                metadata.primary_language = max(languages.items(), key=lambda x: x[1])[0]
+            
+            # Get repository statistics
+            metadata.total_files = github_repo.size  # Approximation
+            metadata.total_lines = 0  # Not directly available via API
+            metadata.commits_count = github_repo.get_commits().totalCount
+            
+            # Get additional repository information
+            metadata.stars_count = github_repo.stargazers_count
+            metadata.forks_count = github_repo.forks_count
+            metadata.open_issues = github_repo.open_issues_count
+            metadata.default_branch = github_repo.default_branch
+            
+            # Detect project type from language and topics
+            topics = list(github_repo.get_topics())
+            metadata.topics = topics
+            
+            # Basic project type detection
+            if metadata.primary_language:
+                lang_lower = metadata.primary_language.lower()
+                if lang_lower in ['python']:
+                    metadata.project_type = "python"
+                elif lang_lower in ['javascript', 'typescript']:
+                    metadata.project_type = "web"
+                elif lang_lower in ['java']:
+                    metadata.project_type = "java"
+                elif lang_lower in ['c', 'c++', 'cpp']:
+                    metadata.project_type = "cpp"
+                elif lang_lower in ['go']:
+                    metadata.project_type = "go"
+                else:
+                    metadata.project_type = "other"
+            
+            # Set has_readme based on GitHub repo data
+            try:
+                github_repo.get_readme()
+                metadata.has_readme = True
+            except:
+                metadata.has_readme = False
+            
+            self.logger.info(f"Successfully analyzed GitHub repository: {metadata.name}", "GITHUB_ANALYSIS")
+            return metadata
+            
+        except Exception as e:
+            self.logger.error(f"Failed to analyze GitHub repository {repo_item.url}: {e}", "GITHUB_ANALYSIS")
+            # Return basic metadata on error
+            metadata = ProjectMetadata()
+            metadata.name = repo_item.name
+            metadata.repository_url = repo_item.url
+            metadata.description = f"GitHub repository (analysis failed: {str(e)})"
+            return metadata
     
     def _update_analysis_ui(self, repo_item: RepositoryItem, status: str, error_msg: str = ""):
         """Update analysis UI elements."""
@@ -1033,3 +1172,34 @@ class GitHubRepoDialog:
     def on_cancel(self):
         """Handle cancel button click."""
         self.dialog.destroy()
+
+
+class LoadingDialog:
+    """Simple loading dialog with progress indicator."""
+    
+    def __init__(self, parent, message="Loading..."):
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("Loading")
+        self.dialog.geometry("300x100")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        
+        # Center dialog
+        self.dialog.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - 150
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - 50
+        self.dialog.geometry(f"+{x}+{y}")
+        
+        # Content
+        ttk.Label(self.dialog, text=message).pack(pady=20)
+        
+        # Progress bar
+        self.progress = ttk.Progressbar(self.dialog, mode='indeterminate')
+        self.progress.pack(pady=10, padx=20, fill='x')
+        self.progress.start()
+    
+    def close(self):
+        """Close the loading dialog."""
+        if self.dialog.winfo_exists():
+            self.progress.stop()
+            self.dialog.destroy()
