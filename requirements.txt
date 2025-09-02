@@ -28,6 +28,7 @@ pygments>=2.10.0
 # Utility libraries
 python-dateutil>=2.8.0
 colorama>=0.4.0
+keyring>=24.0.0
 
 # Optional dependencies (install if needed)
 # pandas>=2.0.0

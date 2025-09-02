@@ -1192,3 +1192,15 @@ class LoadingDialog:
         if self.dialog.winfo_exists():
             self.progress.stop()
             self.dialog.destroy()
+
+
+# Compatibility alias for CI testing
+RepoReadmeApp = RepoReadmeGUI
+
+def main():
+    """Main entry point for the GUI application."""
+    app = RepoReadmeGUI()
+    app.run()
+
+if __name__ == '__main__':
+    main()

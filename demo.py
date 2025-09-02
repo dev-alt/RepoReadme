@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 RepoReadme - Command Line Demo
 
@@ -8,6 +9,13 @@ Perfect for testing and automation.
 
 import sys
 import os
+
+# Set UTF-8 encoding for output on all platforms
+if sys.platform.startswith('win'):
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
+
 sys.path.insert(0, 'src')
 
 from analyzers.repository_analyzer import RepositoryAnalyzer, ProjectMetadata
