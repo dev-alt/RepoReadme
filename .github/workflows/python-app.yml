@@ -1,0 +1,52 @@
+name: RepoReadme CI
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Test CLI functionality
+      run: |
+        python demo.py . --template modern --output test_readme.md
+    
+    - name: Verify GUI can import (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: |
+        python -c "import sys; sys.path.insert(0, 'src'); from gui import RepoReadmeApp; print('GUI imports successfully')"
+    
+    - name: Check generated README
+      run: |
+        if [ -f "test_readme.md" ]; then
+          echo "README generated successfully"
+          head -20 test_readme.md
+        else
+          echo "README generation failed"
+          exit 1
+        fi
+      shell: bash

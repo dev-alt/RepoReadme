@@ -1,0 +1,61 @@
+{
+  "app": {
+    "name": "RepoReadme",
+    "version": "1.0.0",
+    "author": "RepoReadme Team",
+    "description": "Automatic README Generator"
+  },
+  "gui": {
+    "theme": "modern",
+    "window_size": {
+      "width": 1400,
+      "height": 900
+    },
+    "remember_window_position": true,
+    "auto_save_settings": true
+  },
+  "templates": {
+    "default_template": "modern",
+    "include_badges": true,
+    "include_toc": true,
+    "include_screenshots": true,
+    "include_api_docs": true,
+    "include_contributing": true,
+    "include_license": true,
+    "include_acknowledgments": true,
+    "emoji_style": "unicode",
+    "badge_style": "flat"
+  },
+  "analysis": {
+    "cache_enabled": true,
+    "cache_duration_hours": 24,
+    "deep_analysis": true,
+    "include_dependencies": true,
+    "detect_frameworks": true,
+    "analyze_code_quality": true
+  },
+  "github": {
+    "api_timeout": 30,
+    "retry_attempts": 3,
+    "use_authenticated_api": false
+  },
+  "output": {
+    "default_filename": "README.md",
+    "backup_existing": true,
+    "output_directory": "./output",
+    "create_subdirectories": false
+  },
+  "logging": {
+    "level": "INFO",
+    "file_logging": true,
+    "console_logging": true,
+    "max_log_files": 10,
+    "max_file_size_mb": 5
+  },
+  "paths": {
+    "config_dir": "~/.reporeadme/config",
+    "cache_dir": "~/.reporeadme/cache",
+    "logs_dir": "~/.reporeadme/logs",
+    "templates_dir": "src/templates"
+  }
+}
