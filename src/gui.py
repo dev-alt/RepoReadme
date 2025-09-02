@@ -72,15 +72,6 @@ class RepoReadmeGUI:
         self.root.geometry("1500x950")
         self.root.minsize(1200, 700)
         
-        # Configure window styling
-        self.root.configure(bg='#F8F9FA')
-        
-        # Set window icon (if available)
-        try:
-            # This will work if we have an icon file
-            self.root.iconbitmap('icon.ico')
-        except:
-            pass
         
         # Initialize components
         self.logger = get_logger()
@@ -124,248 +115,26 @@ class RepoReadmeGUI:
             self.github_client = None
     
     def setup_styles(self):
-        """Configure modern GUI styles and themes."""
+        """Configure clean GUI styles."""
         style = ttk.Style()
         
-        # Set modern theme
-        try:
-            style.theme_use('clam')  # Use clam theme for better customization
-        except:
-            pass
+        # Simple, clean styling
+        style.configure('Header.TLabel', font=('Segoe UI', 12, 'bold'), foreground='#2c3e50')
+        style.configure('Subheader.TLabel', font=('Segoe UI', 10, 'bold'), foreground='#34495e')
+        style.configure('Action.TButton', font=('Segoe UI', 9))
+        style.configure('Primary.TButton', font=('Segoe UI', 9, 'bold'))
         
-        # Modern color palette
-        colors = {
-            'primary': '#4A90E2',      # Modern blue
-            'primary_dark': '#357ABD', # Darker blue for hover
-            'secondary': '#50C878',    # Success green  
-            'danger': '#E74C3C',       # Error red
-            'warning': '#F39C12',      # Warning orange
-            'text_primary': '#2C3E50', # Dark text
-            'text_secondary': '#7F8C8D', # Light gray text
-            'background': '#FFFFFF',   # White background
-            'surface': '#F8F9FA',      # Light gray surface
-            'border': '#E1E8ED',       # Light border
-            'accent': '#9B59B6',       # Purple accent
-        }
-        
-        # Configure modern button styles
-        style.configure('Action.TButton',
-                       font=('Segoe UI', 9, 'normal'),
-                       padding=(12, 8),
-                       relief='flat',
-                       borderwidth=1)
-        
-        style.configure('Primary.TButton',
-                       font=('Segoe UI', 9, 'bold'),
-                       padding=(16, 10),
-                       relief='flat',
-                       borderwidth=0,
-                       background=colors['primary'],
-                       foreground='white')
-        
-        style.configure('Success.TButton',
-                       font=('Segoe UI', 9, 'bold'),
-                       padding=(14, 8),
-                       relief='flat',
-                       borderwidth=0,
-                       background=colors['secondary'],
-                       foreground='white')
-        
-        style.configure('Danger.TButton',
-                       font=('Segoe UI', 9),
-                       padding=(12, 8),
-                       relief='flat',
-                       borderwidth=1,
-                       background=colors['danger'],
-                       foreground='white')
-        
-        # Configure label styles
-        style.configure('Title.TLabel',
-                       font=('Segoe UI', 16, 'bold'),
-                       foreground=colors['text_primary'],
-                       background=colors['background'])
-        
-        style.configure('Header.TLabel',
-                       font=('Segoe UI', 12, 'bold'),
-                       foreground=colors['text_primary'],
-                       background=colors['background'])
-        
-        style.configure('Subheader.TLabel',
-                       font=('Segoe UI', 10, 'bold'),
-                       foreground=colors['text_secondary'],
-                       background=colors['background'])
-        
-        style.configure('Info.TLabel',
-                       font=('Segoe UI', 9),
-                       foreground=colors['text_secondary'],
-                       background=colors['background'])
-        
-        style.configure('Success.TLabel',
-                       font=('Segoe UI', 9, 'bold'),
-                       foreground=colors['secondary'],
-                       background=colors['background'])
-        
-        # Configure frame styles
-        style.configure('Card.TFrame',
-                       relief='solid',
-                       borderwidth=1,
-                       background=colors['background'])
-        
-        style.configure('Surface.TFrame',
-                       background=colors['surface'],
-                       relief='flat',
-                       borderwidth=0)
-        
-        # Configure treeview with modern styling
-        style.configure('Modern.Treeview',
-                       background=colors['background'],
-                       foreground=colors['text_primary'],
-                       fieldbackground=colors['background'],
-                       borderwidth=1,
-                       relief='solid',
-                       rowheight=30)
-        
-        style.configure('Modern.Treeview.Heading',
-                       background=colors['surface'],
-                       foreground=colors['text_primary'],
-                       font=('Segoe UI', 9, 'bold'),
-                       relief='flat',
-                       borderwidth=1)
-        
-        # Configure notebook (tabs) styling
-        style.configure('Modern.TNotebook',
-                       background=colors['background'],
-                       borderwidth=0)
-        
-        style.configure('Modern.TNotebook.Tab',
-                       background=colors['surface'],
-                       foreground=colors['text_secondary'],
-                       padding=(16, 12),
-                       font=('Segoe UI', 9, 'bold'),
-                       borderwidth=1,
-                       relief='flat')
-        
-        # Configure entry styling
-        style.configure('Modern.TEntry',
-                       fieldbackground=colors['background'],
-                       borderwidth=1,
-                       relief='solid',
-                       padding=8)
-        
-        # Configure combobox styling
-        style.configure('Modern.TCombobox',
-                       fieldbackground=colors['background'],
-                       borderwidth=1,
-                       relief='solid',
-                       padding=8)
-        
-        # Configure progressbar styling
-        style.configure('Modern.Horizontal.TProgressbar',
-                       background=colors['primary'],
-                       borderwidth=0,
-                       lightcolor=colors['primary'],
-                       darkcolor=colors['primary'])
-        
-        # Store colors for use in custom widgets
-        self.colors = colors
+        # Treeview styling
+        style.configure('Treeview', rowheight=25)
+        style.configure('Treeview.Heading', font=('Segoe UI', 9, 'bold'))
     
-    def create_title_bar(self):
-        """Create modern title bar with branding and status."""
-        title_frame = tk.Frame(self.root, bg=self.colors['primary'], height=60)
-        title_frame.pack(fill='x', pady=(0, 0))
-        title_frame.pack_propagate(False)
-        
-        # Left side - Logo and title
-        left_frame = tk.Frame(title_frame, bg=self.colors['primary'])
-        left_frame.pack(side='left', fill='y', padx=20)
-        
-        # App title with emoji
-        title_label = tk.Label(left_frame, 
-                              text="🚀 RepoReadme", 
-                              font=('Segoe UI', 18, 'bold'),
-                              fg='white',
-                              bg=self.colors['primary'])
-        title_label.pack(side='left', pady=15)
-        
-        # Subtitle
-        subtitle_label = tk.Label(left_frame,
-                                 text="Automatic README Generator",
-                                 font=('Segoe UI', 11),
-                                 fg='#E3F2FD',
-                                 bg=self.colors['primary'])
-        subtitle_label.pack(side='left', padx=(10, 0), pady=15)
-        
-        # Right side - Version and status
-        right_frame = tk.Frame(title_frame, bg=self.colors['primary'])
-        right_frame.pack(side='right', fill='y', padx=20)
-        
-        # Version
-        version_label = tk.Label(right_frame,
-                                text="v1.0.0",
-                                font=('Segoe UI', 10),
-                                fg='#E3F2FD',
-                                bg=self.colors['primary'])
-        version_label.pack(side='right', pady=15)
-        
-        # Status indicator (will be set in status bar)
-        status_indicator = tk.Label(right_frame,
-                                   text="Ready",
-                                   font=('Segoe UI', 10, 'bold'),
-                                   fg='#C8E6C9',
-                                   bg=self.colors['primary'])
-        status_indicator.pack(side='right', padx=(0, 20), pady=15)
-        
-        # Add separator line
-        separator = tk.Frame(self.root, bg=self.colors['border'], height=1)
-        separator.pack(fill='x')
-    
-    def create_status_bar(self):
-        """Create modern status bar at bottom."""
-        # Status bar container
-        status_frame = tk.Frame(self.root, bg=self.colors['surface'], height=40)
-        status_frame.pack(fill='x', side='bottom')
-        status_frame.pack_propagate(False)
-        
-        # Left side - Status message
-        left_status = tk.Frame(status_frame, bg=self.colors['surface'])
-        left_status.pack(side='left', fill='y', padx=15)
-        
-        self.status_var = tk.StringVar(value="Ready")
-        status_label = tk.Label(left_status,
-                               textvariable=self.status_var,
-                               font=('Segoe UI', 9),
-                               fg=self.colors['text_secondary'],
-                               bg=self.colors['surface'])
-        status_label.pack(side='left', pady=12)
-        
-        # Right side - Progress and info
-        right_status = tk.Frame(status_frame, bg=self.colors['surface'])
-        right_status.pack(side='right', fill='y', padx=15)
-        
-        # Progress bar (initially hidden)
-        self.progress_var = tk.StringVar()
-        self.progress_label = tk.Label(right_status,
-                                      textvariable=self.progress_var,
-                                      font=('Segoe UI', 9),
-                                      fg=self.colors['text_secondary'],
-                                      bg=self.colors['surface'])
-        
-        self.analysis_progress = ttk.Progressbar(right_status,
-                                               mode='indeterminate',
-                                               style='Modern.Horizontal.TProgressbar')
-        
-        # Add separator line at top of status bar
-        separator = tk.Frame(self.root, bg=self.colors['border'], height=1)
-        separator.pack(fill='x', side='bottom')
     
     def create_widgets(self):
         """Create and configure all GUI widgets."""
         
-        # Create title bar
-        self.create_title_bar()
-        
         # Main container with paned window for resizable layout
-        self.main_paned = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL, style='Modern.TPanedwindow')
+        self.main_paned = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
+        self.main_paned.pack(fill='both', expand=True, padx=10, pady=10)
         
         # Left panel - Repository management
         self.left_frame = ttk.Frame(self.main_paned, width=400)
@@ -377,156 +146,95 @@ class RepoReadmeGUI:
         
         self.main_paned.add(self.left_frame, weight=1)
         self.main_paned.add(self.right_frame, weight=2)
-        
-        # Add status bar at bottom
-        self.create_status_bar()
     
     def create_repository_panel(self):
-        """Create the modern repository management panel."""
+        """Create the repository management panel."""
         
-        # Main container with padding
-        container = ttk.Frame(self.left_frame, style='Surface.TFrame')
-        container.pack(fill='both', expand=True, padx=15, pady=15)
-        
-        # Header with modern styling
-        header_frame = ttk.Frame(container, style='Surface.TFrame')
-        header_frame.pack(fill='x', pady=(0, 20))
+        # Header
+        header_frame = ttk.Frame(self.left_frame)
+        header_frame.pack(fill='x', pady=(0, 10))
         
         ttk.Label(header_frame, text="📁 Repository Manager", 
                  style='Header.TLabel').pack(side='left')
         
-        # Action buttons with modern card layout
-        actions_card = ttk.Frame(container, style='Card.TFrame')
-        actions_card.pack(fill='x', pady=(0, 15))
+        # Repository list with actions
+        list_frame = ttk.LabelFrame(self.left_frame, text="Repositories", padding=10)
+        list_frame.pack(fill='both', expand=True, pady=(0, 10))
         
-        # Card header
-        card_header = ttk.Frame(actions_card, style='Card.TFrame')
-        card_header.pack(fill='x', padx=15, pady=(15, 10))
-        ttk.Label(card_header, text="Add Repository", 
-                 style='Subheader.TLabel').pack(side='left')
-        
-        # Action buttons with better spacing
-        button_frame = ttk.Frame(actions_card, style='Card.TFrame')
-        button_frame.pack(fill='x', padx=15, pady=(0, 15))
-        
-        # Primary action button
-        ttk.Button(button_frame, text="📂 Add Local Folder", 
-                  command=self.add_local_repository, style='Primary.TButton').pack(side='left', padx=(0, 10))
-        
-        # Secondary action button
+        # Action buttons
+        button_frame = ttk.Frame(list_frame)
+        button_frame.pack(fill='x', pady=(0, 10))
+        ttk.Button(button_frame, text="➕ Add Local Folder", 
+                  command=self.add_local_repository, style='Action.TButton').pack(side='left', padx=5)
         ttk.Button(button_frame, text="🐙 Add GitHub Repo", 
-                  command=self.add_github_repository, style='Action.TButton').pack(side='left', padx=(0, 10))
-        
-        # Danger button for remove
+                  command=self.add_github_repository, style='Action.TButton').pack(side='left', padx=5)
         ttk.Button(button_frame, text="🗑️ Remove", 
-                  command=self.remove_repository, style='Danger.TButton').pack(side='right')
+                  command=self.remove_repository, style='Action.TButton').pack(side='left', padx=5)
         
-        # Info note with better styling
-        info_frame = ttk.Frame(actions_card, style='Card.TFrame')
-        info_frame.pack(fill='x', padx=15, pady=(0, 15))
-        ttk.Label(info_frame, text="💡 Tip: Add public GitHub repositories or local folders for analysis", 
-                 style='Info.TLabel').pack(side='left')
+        # Info note
+        info_frame = ttk.Frame(list_frame)
+        info_frame.pack(pady=(0, 5), fill='x')
+        info_label = ttk.Label(info_frame, text="ℹ️  Add public GitHub repositories or local folders for analysis", 
+                              font=('Segoe UI', 8), foreground='#666666')
+        info_label.pack(side='left')
         
-        # Repository list with modern card styling
-        list_card = ttk.Frame(container, style='Card.TFrame')
-        list_card.pack(fill='both', expand=True)
-        
-        # List header
-        list_header = ttk.Frame(list_card, style='Card.TFrame')
-        list_header.pack(fill='x', padx=15, pady=(15, 10))
-        ttk.Label(list_header, text="Your Repositories", 
-                 style='Subheader.TLabel').pack(side='left')
-        
-        # Repository list with modern styling
-        list_container = ttk.Frame(list_card, style='Card.TFrame')
-        list_container.pack(fill='both', expand=True, padx=15, pady=(0, 15))
-        
-        self.repo_tree = ttk.Treeview(list_container, 
-                                     columns=('type', 'status'), 
-                                     show='tree headings', 
-                                     height=12,
-                                     style='Modern.Treeview')
+        # Repository list
+        self.repo_tree = ttk.Treeview(list_frame, columns=('type', 'status'), show='tree headings', height=12)
         self.repo_tree.heading('#0', text='Repository', anchor='w')
         self.repo_tree.heading('type', text='Type', anchor='center')
         self.repo_tree.heading('status', text='Status', anchor='center')
         
-        self.repo_tree.column('#0', width=250)
-        self.repo_tree.column('type', width=100)
-        self.repo_tree.column('status', width=120)
+        self.repo_tree.column('#0', width=200)
+        self.repo_tree.column('type', width=80)
+        self.repo_tree.column('status', width=100)
         
         # Scrollbar for repository list
-        repo_scrollbar = ttk.Scrollbar(list_container, orient='vertical', command=self.repo_tree.yview)
+        repo_scrollbar = ttk.Scrollbar(list_frame, orient='vertical', command=self.repo_tree.yview)
         self.repo_tree.configure(yscrollcommand=repo_scrollbar.set)
         
-        # Pack treeview and scrollbar
         self.repo_tree.pack(side='left', fill='both', expand=True)
         repo_scrollbar.pack(side='right', fill='y')
         
         self.repo_tree.bind('<<TreeviewSelect>>', self.on_repository_select)
         
-        # Repository info panel with modern card styling
-        info_card = ttk.Frame(container, style='Card.TFrame')
-        info_card.pack(fill='x', pady=(15, 0))
+        # Repository info panel
+        info_frame = ttk.LabelFrame(self.left_frame, text="Repository Information", padding=10)
+        info_frame.pack(fill='both', expand=True, pady=(0, 10))
+        self.info_text = scrolledtext.ScrolledText(info_frame, height=8, width=45, 
+                                                  font=('Consolas', 9), state='disabled')
+        self.info_text.pack(fill='both', expand=True)
         
-        # Info card header
-        info_header = ttk.Frame(info_card, style='Card.TFrame')
-        info_header.pack(fill='x', padx=15, pady=(15, 10))
-        ttk.Label(info_header, text="Repository Information", 
-                 style='Subheader.TLabel').pack(side='left')
-        
-        # Info text with modern styling
-        info_container = ttk.Frame(info_card, style='Card.TFrame')
-        info_container.pack(fill='x', padx=15, pady=(0, 10))
-        
-        self.info_text = scrolledtext.ScrolledText(info_container, 
-                                                  height=6, width=45, 
-                                                  font=('Consolas', 9), 
-                                                  state='disabled',
-                                                  bg=self.colors['surface'],
-                                                  fg=self.colors['text_primary'],
-                                                  borderwidth=1,
-                                                  relief='solid')
-        self.info_text.pack(fill='x')
-        
-        # Action buttons for selected repository
-        action_container = ttk.Frame(info_card, style='Card.TFrame')
-        action_container.pack(fill='x', padx=15, pady=(0, 15))
-        
-        ttk.Button(action_container, text="🔍 Analyze Repository", 
-                  command=self.analyze_selected_repository, 
-                  style='Success.TButton').pack(side='left', padx=(0, 10))
-        
-        ttk.Button(action_container, text="📝 Generate README", 
-                  command=self.generate_readme_for_selected, 
-                  style='Primary.TButton').pack(side='left')
-        
+        # Batch operations
+        batch_frame = ttk.LabelFrame(self.left_frame, text="Batch Operations", padding=10)
+        batch_frame.pack(fill='x')
+        ttk.Button(batch_frame, text="🔍 Analyze All", 
+                  command=self.analyze_all_repositories, style='Primary.TButton').pack(fill='x', pady=2)
+        ttk.Button(batch_frame, text="📝 Generate All READMEs", 
+                  command=self.generate_all_readmes, style='Primary.TButton').pack(fill='x', pady=2)
+        ttk.Button(batch_frame, text="💾 Export All", 
+                  command=self.export_all_readmes, style='Action.TButton').pack(fill='x', pady=2)
     
     def create_configuration_panel(self):
-        """Create the modern configuration and preview panel."""
+        """Create the configuration and preview panel."""
         
-        # Main container with padding
-        container = ttk.Frame(self.right_frame, style='Surface.TFrame')
-        container.pack(fill='both', expand=True, padx=15, pady=15)
-        
-        # Modern notebook with custom styling
-        self.notebook = ttk.Notebook(container, style='Modern.TNotebook')
+        # Notebook for tabs
+        self.notebook = ttk.Notebook(self.right_frame)
+        self.notebook.pack(fill='both', expand=True)
         
         # Template Configuration Tab
-        self.config_frame = ttk.Frame(self.notebook, style='Surface.TFrame')
-        self.notebook.add(self.config_frame, text="⚙️  Configuration")
+        self.config_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.config_frame, text="⚙️ Configuration")
         self.create_configuration_tab()
         
         # README Preview Tab
-        self.preview_frame = ttk.Frame(self.notebook, style='Surface.TFrame')
-        self.notebook.add(self.preview_frame, text="👁️  Preview")
+        self.preview_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.preview_frame, text="👁️ Preview")
         self.create_preview_tab()
         
         # Analysis Results Tab
-        self.analysis_frame = ttk.Frame(self.notebook, style='Surface.TFrame')
-        self.notebook.add(self.analysis_frame, text="📊  Analysis")
+        self.analysis_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.analysis_frame, text="📊 Analysis")
         self.create_analysis_tab()
-        
-        self.notebook.pack(fill='both', expand=True, pady=(10, 0))
     
     def create_configuration_tab(self):
         """Create the template configuration tab."""
