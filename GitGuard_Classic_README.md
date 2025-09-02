@@ -1,1 +1,0 @@
-# gitcheck\n\n## Installation\n\n    pip install -r requirements.txt\n    python main.py\n\n## Usage\n\nAdd usage instructions here.\n

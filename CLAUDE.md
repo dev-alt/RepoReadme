@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-RepoReadme is an automatic README generator built in Python 3.10+ that analyzes repositories and generates professional documentation. It's built on GitGuard architecture patterns, providing a modular and extensible foundation.
+RepoReadme is an automatic README generator built in Python 3.10+ that analyzes repositories and generates professional documentation. It features a modular and extensible architecture with clean separation of concerns.
 
 ## Development Commands
 
@@ -48,7 +48,7 @@ pip install -r requirements.txt
 - **Dataclass Pattern** - Extensive use for configuration and metadata containers (`ProjectMetadata`, `TemplateConfig`)
 - **Factory Pattern** - Template generation with different styles
 - **Modular Design** - Clear separation between analysis, templating, GUI, and utilities
-- **Reusable GitGuard Components** - File scanning, progress tracking, configuration management, logging framework
+- **Reusable Components** - File scanning, progress tracking, configuration management, logging framework
 
 ## Configuration
 
@@ -84,6 +84,6 @@ The repository analyzer (`src/analyzers/repository_analyzer.py`) provides:
 
 - **No Testing Framework**: The project currently lacks automated tests
 - **Python 3.10+ Required**: Uses modern Python features
-- **GitGuard Architecture**: Leverages proven patterns from previous project
+- **Modern Architecture**: Uses established Python patterns and best practices
 - **Multi-Platform Support**: GitHub, GitLab, and local repositories
 - **Batch Processing**: Can analyze multiple repositories simultaneously

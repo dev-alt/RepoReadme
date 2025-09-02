@@ -1,6 +1,6 @@
 # Contributing to RepoReadme
 
-Thank you for your interest in contributing to RepoReadme! This project leverages GitGuard's proven architecture and welcomes contributions that maintain its quality and extensibility.
+Thank you for your interest in contributing to RepoReadme! This project uses modern Python architecture patterns and welcomes contributions that maintain its quality and extensibility.
 
 ## Development Setup
 
@@ -23,12 +23,13 @@ Thank you for your interest in contributing to RepoReadme! This project leverage
 
 ## Code Style and Standards
 
-### Following GitGuard Patterns
+### Code Standards and Patterns
 - **Modular Architecture**: Maintain clear separation between analyzers, templates, GUI, and utilities
 - **Comprehensive Logging**: Use the existing logging framework for all operations
 - **Error Handling**: Include robust exception handling for all user-facing operations
 - **Type Hints**: Use type annotations for all functions and class methods
 - **Docstrings**: Provide clear documentation for all public methods
+- **Clean Code**: Follow PEP 8 and maintain readable, maintainable code
 
 ### Code Organization
 - **Analyzers** (`src/analyzers/`): Repository analysis and technology detection
@@ -122,7 +123,7 @@ python demo.py path/to/test/repo --template corporate
 
 - Open an issue for bugs or feature requests
 - Use discussions for general questions
-- Reference GitGuard patterns when unsure about architecture decisions
+- Follow established Python patterns and architectural best practices
 
 ## Recognition
 
