@@ -158,10 +158,15 @@ class RepoReadmeGUI:
                   command=self.add_local_repository, style='Action.TButton').pack(side='left', padx=5)
         ttk.Button(button_frame, text="🐙 Add GitHub Repo", 
                   command=self.add_github_repository, style='Action.TButton').pack(side='left', padx=5)
-        ttk.Button(button_frame, text="📚 Load My Repos", 
-                  command=self.load_user_repositories, style='Action.TButton').pack(side='left', padx=5)
         ttk.Button(button_frame, text="🗑️ Remove", 
                   command=self.remove_repository, style='Action.TButton').pack(side='left', padx=5)
+        
+        # Info note
+        info_frame = ttk.Frame(list_frame)
+        info_label = ttk.Label(info_frame, text="ℹ️  Add public GitHub repositories or local folders for analysis", 
+                              font=('Segoe UI', 8), foreground='#666666')
+        info_label.pack(side='left')
+        info_frame.pack(pady=(0, 5), fill='x')
         
         # Repository list
         self.repo_tree = ttk.Treeview(list_frame, columns=('type', 'status'), show='tree headings', height=12)
@@ -402,71 +407,23 @@ class RepoReadmeGUI:
             self.update_repository_list()
             
             # Show success feedback
-            messagebox.showinfo("Repository Added", 
-                              f"Successfully added GitHub repository:\n{repo_name}\n\nYou can now select it and click 'Analyze Repository' to get detailed analysis.")
+            total_repos = len(self.repositories)
+            messagebox.showinfo("Repository Added Successfully", 
+                              f"✅ Added GitHub repository:\n{repo_name}\n\nTotal repositories: {total_repos}\nSelect it in the list and click 'Analyze Repository' for detailed analysis.")
             
             # Select the newly added repository
             for item in self.repo_tree.get_children():
-                if self.repo_tree.item(item)['text'].endswith(repo_name.split('/')[-1]):
+                item_text = self.repo_tree.item(item)['text']
+                # Look for the full repo name or just the repo part
+                if repo_name in item_text or repo_name.split('/')[-1] in item_text:
                     self.repo_tree.selection_set(item)
                     self.repo_tree.see(item)
-                    self.on_repository_select(None)  # Update info panel
+                    # Trigger selection event
+                    event = type('Event', (), {'widget': self.repo_tree})()
+                    self.on_repository_select(event)
                     break
             
             self.logger.info(f"Added GitHub repository: {repo_name}", "GUI")
-    
-    def load_user_repositories(self):
-        """Load all repositories from the authenticated user."""
-        if self.github_client is None:
-            messagebox.showerror("GitHub Unavailable", 
-                               "GitHub client not available. Please ensure PyGithub is installed.")
-            return
-        
-        # Show loading dialog
-        loading_dialog = LoadingDialog(self.root, "Loading your GitHub repositories...")
-        
-        def load_repos_thread():
-            try:
-                # Get user's repositories
-                user = self.github_client.get_user()
-                repos = list(user.get_repos(type='owner', sort='updated'))
-                
-                # Add repositories to the list
-                for repo in repos:
-                    repo_item = RepositoryItem(
-                        name=f"{repo.owner.login}/{repo.name}",
-                        path="", 
-                        url=repo.html_url,
-                        repo_type="github"
-                    )
-                    # Check if repo already exists
-                    if not any(r.url == repo.html_url for r in self.repositories):
-                        self.repositories.append(repo_item)
-                
-                # Update UI on main thread
-                self.root.after(0, lambda: self._finish_load_repos(loading_dialog, len(repos)))
-                
-            except Exception as e:
-                error_msg = str(e)  # Capture the error message
-                self.root.after(0, lambda: self._handle_load_repos_error(loading_dialog, error_msg))
-        
-        # Start loading in background thread
-        threading.Thread(target=load_repos_thread, daemon=True).start()
-    
-    def _finish_load_repos(self, loading_dialog, repo_count):
-        """Finish loading user repositories."""
-        loading_dialog.close()
-        self.update_repository_list()
-        messagebox.showinfo("Repositories Loaded", 
-                          f"Successfully loaded {repo_count} repositories from your GitHub account!")
-        self.logger.info(f"Loaded {repo_count} user repositories from GitHub", "GUI")
-    
-    def _handle_load_repos_error(self, loading_dialog, error_msg):
-        """Handle error during repository loading."""
-        loading_dialog.close()
-        messagebox.showerror("Loading Failed", 
-                           f"Failed to load repositories from GitHub:\n{error_msg}")
-        self.logger.error(f"Failed to load user repositories: {error_msg}", "GUI")
     
     def remove_repository(self):
         """Remove selected repository."""
@@ -1194,7 +1151,7 @@ class GitHubRepoDialog:
                     test_repo = self.github_client.get_repo(repo_name)
                     # If we get here, repo exists
                     messagebox.showinfo("Repository Found", 
-                                      f"✅ Repository found: {test_repo.full_name}\n{test_repo.description or 'No description'}")
+                                      f"✅ Repository found: {test_repo.full_name}\n{test_repo.description or 'No description'}\n\nAdding to repository list...")
                 except Exception as e:
                     if "404" in str(e):
                         messagebox.showerror("Repository Not Found", 
