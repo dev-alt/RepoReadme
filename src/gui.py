@@ -400,6 +400,19 @@ class RepoReadmeGUI:
             repo_item = RepositoryItem(repo_name, "", repo_url, "github")
             self.repositories.append(repo_item)
             self.update_repository_list()
+            
+            # Show success feedback
+            messagebox.showinfo("Repository Added", 
+                              f"Successfully added GitHub repository:\n{repo_name}\n\nYou can now select it and click 'Analyze Repository' to get detailed analysis.")
+            
+            # Select the newly added repository
+            for item in self.repo_tree.get_children():
+                if self.repo_tree.item(item)['text'].endswith(repo_name.split('/')[-1]):
+                    self.repo_tree.selection_set(item)
+                    self.repo_tree.see(item)
+                    self.on_repository_select(None)  # Update info panel
+                    break
+            
             self.logger.info(f"Added GitHub repository: {repo_name}", "GUI")
     
     def load_user_repositories(self):
@@ -434,7 +447,8 @@ class RepoReadmeGUI:
                 self.root.after(0, lambda: self._finish_load_repos(loading_dialog, len(repos)))
                 
             except Exception as e:
-                self.root.after(0, lambda: self._handle_load_repos_error(loading_dialog, str(e)))
+                error_msg = str(e)  # Capture the error message
+                self.root.after(0, lambda: self._handle_load_repos_error(loading_dialog, error_msg))
         
         # Start loading in background thread
         threading.Thread(target=load_repos_thread, daemon=True).start()
@@ -594,8 +608,9 @@ class RepoReadmeGUI:
             
         except Exception as e:
             repo_item.status = "error"
+            error_msg = str(e)  # Capture the error message
             self.logger.error(f"Repository analysis failed: {e}", "ANALYSIS", e)
-            self.root.after(0, lambda: self._update_analysis_ui(repo_item, "error", str(e)))
+            self.root.after(0, lambda: self._update_analysis_ui(repo_item, "error", error_msg))
         
         finally:
             self.is_analyzing = False
@@ -1111,6 +1126,7 @@ class GitHubRepoDialog:
     
     def __init__(self, parent, github_client):
         self.result = None
+        self.github_client = github_client
         
         # Create dialog
         self.dialog = tk.Toplevel(parent)
@@ -1152,22 +1168,49 @@ class GitHubRepoDialog:
             messagebox.showerror("Invalid URL", "Please enter a repository URL.")
             return
         
+        # Validate GitHub URL format
+        if 'github.com' not in url:
+            messagebox.showerror("Invalid URL", "Please enter a valid GitHub repository URL.\nExample: https://github.com/username/repository")
+            return
+        
         # Parse repository name from URL
         try:
-            if 'github.com' in url:
-                parts = url.rstrip('/').split('/')
-                if len(parts) >= 2:
-                    repo_name = f"{parts[-2]}/{parts[-1]}"
-                else:
-                    repo_name = parts[-1]
-            else:
-                repo_name = url.split('/')[-1]
+            parts = url.rstrip('/').split('/')
+            if len(parts) < 2:
+                raise ValueError("Invalid URL format")
+            
+            owner = parts[-2]
+            repo = parts[-1]
+            
+            # Remove .git if present
+            if repo.endswith('.git'):
+                repo = repo[:-4]
+            
+            repo_name = f"{owner}/{repo}"
+            
+            # Test if repository exists (if github_client is available)
+            if hasattr(self, 'github_client') and self.github_client:
+                try:
+                    test_repo = self.github_client.get_repo(repo_name)
+                    # If we get here, repo exists
+                    messagebox.showinfo("Repository Found", 
+                                      f"✅ Repository found: {test_repo.full_name}\n{test_repo.description or 'No description'}")
+                except Exception as e:
+                    if "404" in str(e):
+                        messagebox.showerror("Repository Not Found", 
+                                           f"❌ Repository '{repo_name}' not found or is private.\nPlease check the URL and try again.")
+                        return
+                    else:
+                        # Other API error, but let's continue anyway
+                        messagebox.showwarning("Validation Warning", 
+                                             f"⚠️  Could not validate repository '{repo_name}'.\nProceeding anyway...")
             
             self.result = (repo_name, url)
             self.dialog.destroy()
         
-        except Exception:
-            messagebox.showerror("Invalid URL", "Please enter a valid GitHub repository URL.")
+        except Exception as e:
+            messagebox.showerror("Invalid URL", 
+                               f"Please enter a valid GitHub repository URL.\nError: {str(e)}\n\nExample: https://github.com/username/repository")
     
     def on_cancel(self):
         """Handle cancel button click."""
