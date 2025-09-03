@@ -34,6 +34,8 @@ try:
     from .utils.logger import get_logger
     from .config.settings import SettingsManager
     from .template_builder import create_custom_template_builder
+    from .bulk_analyzer_dialog import create_bulk_analyzer
+    from .profile_builder_dialog import create_profile_builder
     from github import Github
 except ImportError:
     from analyzers.repository_analyzer import RepositoryAnalyzer, ProjectMetadata  
@@ -42,11 +44,23 @@ except ImportError:
     from config.settings import SettingsManager
     try:
         from template_builder import create_custom_template_builder
+        from bulk_analyzer_dialog import create_bulk_analyzer
+        from profile_builder_dialog import create_profile_builder
     except ImportError:
-        # Fallback function if template builder fails to import
+        # Fallback functions if features fail to import
         def create_custom_template_builder(parent):
             from tkinter import messagebox
             messagebox.showerror("Feature Unavailable", "Custom template builder is not available in this session.")
+            return None
+        
+        def create_bulk_analyzer(parent):
+            from tkinter import messagebox
+            messagebox.showerror("Feature Unavailable", "Bulk analyzer is not available in this session.")
+            return None
+        
+        def create_profile_builder(parent):
+            from tkinter import messagebox
+            messagebox.showerror("Feature Unavailable", "GitHub Profile Builder is not available in this session.")
             return None
     try:
         from github import Github
@@ -175,11 +189,15 @@ class RepoReadmeGUI:
         button_frame = ttk.Frame(list_frame)
         button_frame.pack(fill='x', pady=(0, 10))
         ttk.Button(button_frame, text="➕ Add Local Folder", 
-                  command=self.add_local_repository, style='Action.TButton').pack(side='left', padx=5)
+                  command=self.add_local_repository, style='Action.TButton').pack(side='left', padx=2)
         ttk.Button(button_frame, text="🐙 Add GitHub Repo", 
-                  command=self.add_github_repository, style='Action.TButton').pack(side='left', padx=5)
+                  command=self.add_github_repository, style='Action.TButton').pack(side='left', padx=2)
+        ttk.Button(button_frame, text="🔍 Bulk Scanner", 
+                  command=self.open_bulk_analyzer, style='Action.TButton').pack(side='left', padx=2)
+        ttk.Button(button_frame, text="🚀 Profile Builder", 
+                  command=self.open_profile_builder, style='Action.TButton').pack(side='left', padx=2)
         ttk.Button(button_frame, text="🗑️ Remove", 
-                  command=self.remove_repository, style='Action.TButton').pack(side='left', padx=5)
+                  command=self.remove_repository, style='Action.TButton').pack(side='left', padx=2)
         
         # Info note
         info_frame = ttk.Frame(list_frame)
@@ -354,6 +372,8 @@ class RepoReadmeGUI:
                   style='Primary.TButton').pack(side='left', padx=5)
         ttk.Button(action_frame, text="💾 Save README", 
                   command=self.save_readme, style='Action.TButton').pack(side='left', padx=5)
+        ttk.Button(action_frame, text="📤 Commit to Repo", 
+                  command=self.commit_readme_to_repo, style='Action.TButton').pack(side='left', padx=5)
         
         # Layout configuration tab
         template_frame.pack(fill='x', pady=(0, 10))
@@ -1043,6 +1063,32 @@ class RepoReadmeGUI:
                 messagebox.showerror("Save Error", f"Failed to save README: {str(e)}")
                 self.logger.error(f"README save failed: {e}", "SAVE", e)
     
+    def commit_readme_to_repo(self):
+        """Commit the generated README directly to the repository."""
+        if not self.selected_repo:
+            messagebox.showwarning("No Selection", "Please select a repository first.")
+            return
+        
+        # Check if we have a README to commit
+        readme_content = ""
+        if self.selected_repo.generated_readme:
+            readme_content = self.selected_repo.generated_readme
+        else:
+            # Try to get content from preview area
+            preview_content = self.preview_text.get('1.0', tk.END).strip()
+            if preview_content and "Select and analyze a repository" not in preview_content:
+                readme_content = preview_content
+            else:
+                messagebox.showwarning("No README", "Generate a README first.")
+                return
+        
+        # Show commit dialog
+        commit_dialog = CommitReadmeDialog(self.root, self.selected_repo, readme_content, self.logger)
+        
+        if commit_dialog.success:
+            self.status_var.set(f"README committed to {self.selected_repo.name}")
+            messagebox.showinfo("Success", f"README successfully committed to {self.selected_repo.name}!")
+    
     # Template Management
     
     def update_template_description(self):
@@ -1081,23 +1127,87 @@ class RepoReadmeGUI:
             from pathlib import Path
             import subprocess
             import platform
+            import shutil
             
-            # Open the custom templates folder
+            # Create the custom templates folder
             templates_dir = Path.home() / ".reporeadme" / "custom_templates"
             templates_dir.mkdir(parents=True, exist_ok=True)
             
-            # Open folder in file manager
-            if platform.system() == "Windows":
-                os.startfile(str(templates_dir))
-            elif platform.system() == "Darwin":  # macOS
-                subprocess.call(["open", str(templates_dir)])
-            else:  # Linux
-                subprocess.call(["xdg-open", str(templates_dir)])
-                
-            messagebox.showinfo("Templates", f"Custom templates folder opened:\n{templates_dir}")
+            # Try to open folder in file manager with fallback
+            opened = False
+            
+            try:
+                if platform.system() == "Windows":
+                    os.startfile(str(templates_dir))
+                    opened = True
+                elif platform.system() == "Darwin":  # macOS
+                    subprocess.run(["open", str(templates_dir)], check=True)
+                    opened = True
+                else:  # Linux
+                    # Try common Linux file managers
+                    file_managers = ["xdg-open", "nautilus", "dolphin", "thunar", "pcmanfm", "nemo"]
+                    for fm in file_managers:
+                        if shutil.which(fm):
+                            subprocess.run([fm, str(templates_dir)], check=True)
+                            opened = True
+                            break
+                    
+                    if not opened:
+                        # If no file manager found, just show the path
+                        raise FileNotFoundError("No suitable file manager found")
+                        
+            except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+                # If file manager fails, show the path instead
+                messagebox.showinfo("Templates Folder", 
+                                  f"Custom templates folder created:\n\n{templates_dir}\n\n"
+                                  f"Copy this path to open manually in your file manager.")
+                return
+            
+            if opened:
+                messagebox.showinfo("Templates", f"Custom templates folder opened:\n{templates_dir}")
             
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to open templates folder: {str(e)}")
+            messagebox.showerror("Error", f"Failed to access templates folder: {str(e)}")
+    
+    def open_bulk_analyzer(self):
+        """Open the bulk repository analyzer dialog."""
+        try:
+            # Create and show the bulk analyzer dialog
+            bulk_dialog = create_bulk_analyzer(self.root)
+            
+            # If repositories were discovered and added, refresh the main GUI
+            if hasattr(bulk_dialog, 'discovered_repos') and bulk_dialog.discovered_repos:
+                # Add discovered repositories to main repository list
+                for repo_info in bulk_dialog.discovered_repos:
+                    if repo_info.selected_for_analysis:  # Only add selected repos
+                        repo_item = RepositoryItem(
+                            name=repo_info.full_name,
+                            path="",
+                            url=repo_info.clone_url,
+                            repo_type="github"
+                        )
+                        self.repositories.append(repo_item)
+                
+                self.update_repository_list()
+                self.status_var.set(f"Added {len([r for r in bulk_dialog.discovered_repos if r.selected_for_analysis])} repositories from bulk scanner")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to open bulk analyzer: {e}", "BULK_ANALYZER")
+            messagebox.showerror("Bulk Analyzer Error", f"Failed to open bulk analyzer: {str(e)}")
+    
+    def open_profile_builder(self):
+        """Open the GitHub Profile Builder dialog."""
+        try:
+            # Create and show the profile builder dialog
+            profile_dialog = create_profile_builder(self.root)
+            
+            # The profile builder is self-contained and handles its own exports
+            # No need to integrate with the main repository list
+            self.logger.info("GitHub Profile Builder opened")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to open GitHub Profile Builder: {e}", "PROFILE_BUILDER")
+            messagebox.showerror("Profile Builder Error", f"Failed to open GitHub Profile Builder: {str(e)}")
     
     # Event Handlers
     
@@ -1660,6 +1770,379 @@ class LoadingDialog:
         if self.dialog.winfo_exists():
             self.progress.stop()
             self.dialog.destroy()
+
+
+class CommitReadmeDialog:
+    """Dialog for committing README to repository."""
+    
+    def __init__(self, parent, repo_item, readme_content, logger):
+        self.success = False
+        self.repo_item = repo_item
+        self.readme_content = readme_content
+        self.logger = logger
+        
+        # Create dialog
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("📤 Commit README to Repository")
+        self.dialog.geometry("600x400")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        
+        # Center dialog
+        self.dialog.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - 300
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - 200
+        self.dialog.geometry(f"+{x}+{y}")
+        
+        self.create_widgets()
+        
+        # Wait for dialog to complete
+        parent.wait_window(self.dialog)
+    
+    def create_widgets(self):
+        """Create dialog widgets."""
+        # Header
+        header_frame = ttk.Frame(self.dialog)
+        header_frame.pack(fill='x', padx=20, pady=10)
+        
+        ttk.Label(header_frame, text=f"📤 Commit README to: {self.repo_item.name}", 
+                 font=('Arial', 12, 'bold')).pack()
+        
+        # Repository info
+        info_frame = ttk.LabelFrame(self.dialog, text="Repository Information", padding=10)
+        info_frame.pack(fill='x', padx=20, pady=10)
+        
+        ttk.Label(info_frame, text=f"Type: {self.repo_item.repo_type}").pack(anchor='w')
+        if self.repo_item.path:
+            ttk.Label(info_frame, text=f"Path: {self.repo_item.path}").pack(anchor='w')
+        if self.repo_item.url:
+            ttk.Label(info_frame, text=f"URL: {self.repo_item.url}").pack(anchor='w')
+        
+        # Commit options
+        options_frame = ttk.LabelFrame(self.dialog, text="Commit Options", padding=10)
+        options_frame.pack(fill='x', padx=20, pady=10)
+        
+        # Commit message
+        ttk.Label(options_frame, text="Commit Message:").pack(anchor='w')
+        self.commit_msg_var = tk.StringVar(value="📝 Add/Update README.md via RepoReadme")
+        commit_entry = ttk.Entry(options_frame, textvariable=self.commit_msg_var, width=70)
+        commit_entry.pack(fill='x', pady=5)
+        
+        # Branch selection for GitHub repos
+        if self.repo_item.repo_type == "github":
+            ttk.Label(options_frame, text="Target Branch:").pack(anchor='w', pady=(10, 0))
+            self.branch_var = tk.StringVar(value="main")
+            branch_frame = ttk.Frame(options_frame)
+            branch_frame.pack(fill='x', pady=5)
+            
+            for branch in ["main", "master", "develop"]:
+                ttk.Radiobutton(branch_frame, text=branch, variable=self.branch_var, 
+                               value=branch).pack(side='left', padx=5)
+        
+        # File options
+        self.overwrite_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(options_frame, text="Overwrite existing README.md", 
+                       variable=self.overwrite_var).pack(anchor='w', pady=5)
+        
+        self.create_pr_var = tk.BooleanVar(value=False)
+        if self.repo_item.repo_type == "github":
+            ttk.Checkbutton(options_frame, text="Create pull request (for GitHub repos)", 
+                           variable=self.create_pr_var).pack(anchor='w')
+        
+        # Preview
+        preview_frame = ttk.LabelFrame(self.dialog, text="README Preview (first 500 chars)", padding=10)
+        preview_frame.pack(fill='both', expand=True, padx=20, pady=10)
+        
+        preview_text = scrolledtext.ScrolledText(preview_frame, height=8, wrap=tk.WORD, 
+                                               font=('Consolas', 9), state='disabled')
+        preview_text.pack(fill='both', expand=True)
+        
+        # Show preview
+        preview_text.config(state='normal')
+        preview_content = self.readme_content[:500] + ("..." if len(self.readme_content) > 500 else "")
+        preview_text.insert('1.0', preview_content)
+        preview_text.config(state='disabled')
+        
+        # Buttons
+        button_frame = ttk.Frame(self.dialog)
+        button_frame.pack(fill='x', padx=20, pady=10)
+        
+        ttk.Button(button_frame, text="📤 Commit README", 
+                  command=self.commit_readme, style='Primary.TButton').pack(side='right', padx=5)
+        ttk.Button(button_frame, text="Cancel", 
+                  command=self.cancel, style='Action.TButton').pack(side='right')
+    
+    def commit_readme(self):
+        """Perform the actual commit."""
+        try:
+            commit_msg = self.commit_msg_var.get().strip()
+            if not commit_msg:
+                messagebox.showerror("Invalid Input", "Please enter a commit message.")
+                return
+            
+            # Show progress
+            progress_dialog = LoadingDialog(self.dialog, "Committing README...")
+            
+            try:
+                if self.repo_item.repo_type == "local":
+                    success = self._commit_to_local_repo(commit_msg)
+                elif self.repo_item.repo_type == "github":
+                    branch = self.branch_var.get() if hasattr(self, 'branch_var') else "main"
+                    success = self._commit_to_github_repo(commit_msg, branch)
+                else:
+                    success = False
+                    messagebox.showerror("Unsupported", "Repository type not supported for commits.")
+            
+            finally:
+                progress_dialog.close()
+            
+            if success:
+                self.success = True
+                self.dialog.destroy()
+            
+        except Exception as e:
+            messagebox.showerror("Commit Error", f"Failed to commit README: {str(e)}")
+            self.logger.error(f"README commit failed: {e}", "COMMIT")
+    
+    def _commit_to_local_repo(self, commit_msg):
+        """Commit README to local Git repository."""
+        try:
+            import git
+            
+            if not self.repo_item.path or not os.path.exists(self.repo_item.path):
+                messagebox.showerror("Invalid Path", "Repository path not found.")
+                return False
+            
+            # Check if it's a git repository
+            try:
+                repo = git.Repo(self.repo_item.path)
+            except git.InvalidGitRepositoryError:
+                if messagebox.askyesno("Not a Git Repo", 
+                                     "This folder is not a Git repository. Initialize it?"):
+                    repo = git.Repo.init(self.repo_item.path)
+                else:
+                    return False
+            
+            # Write README.md file
+            readme_path = os.path.join(self.repo_item.path, "README.md")
+            
+            if os.path.exists(readme_path) and not self.overwrite_var.get():
+                if not messagebox.askyesno("File Exists", "README.md already exists. Overwrite?"):
+                    return False
+            
+            with open(readme_path, 'w', encoding='utf-8') as f:
+                f.write(self.readme_content)
+            
+            # Add and commit
+            repo.index.add(['README.md'])
+            repo.index.commit(commit_msg)
+            
+            self.logger.info(f"README committed to local repo: {self.repo_item.path}", "COMMIT")
+            return True
+            
+        except Exception as e:
+            messagebox.showerror("Git Error", f"Failed to commit to local repository: {str(e)}")
+            self.logger.error(f"Local commit failed: {e}", "COMMIT")
+            return False
+    
+    def _commit_to_github_repo(self, commit_msg, branch):
+        """Commit README to GitHub repository."""
+        try:
+            from github import Github
+            import base64
+            
+            if not self.repo_item.url:
+                messagebox.showerror("No URL", "GitHub repository URL not available.")
+                return False
+            
+            # Parse repository name from URL
+            repo_name = self.repo_item.name
+            if '/' not in repo_name:
+                messagebox.showerror("Invalid Repo", "Cannot determine GitHub repository name.")
+                return False
+            
+            # Initialize GitHub client (this requires authentication for commits)
+            github_token = self._get_github_token()
+            if not github_token:
+                messagebox.showwarning("Authentication Required", 
+                                     "GitHub token required for commits. This feature needs authentication setup.")
+                return False
+            
+            github_client = Github(github_token)
+            repo = github_client.get_repo(repo_name)
+            
+            # Check if README.md already exists
+            try:
+                existing_file = repo.get_contents("README.md", ref=branch)
+                if not self.overwrite_var.get():
+                    if not messagebox.askyesno("File Exists", "README.md already exists. Overwrite?"):
+                        return False
+                
+                # Update existing file
+                repo.update_file(
+                    path="README.md",
+                    message=commit_msg,
+                    content=self.readme_content,
+                    sha=existing_file.sha,
+                    branch=branch
+                )
+            except:
+                # Create new file
+                repo.create_file(
+                    path="README.md",
+                    message=commit_msg,
+                    content=self.readme_content,
+                    branch=branch
+                )
+            
+            # Create PR if requested
+            if self.create_pr_var.get() and branch != "main":
+                try:
+                    pr = repo.create_pull(
+                        title=f"Add/Update README.md",
+                        body=f"Automated README update via RepoReadme\n\n{commit_msg}",
+                        head=branch,
+                        base="main"
+                    )
+                    messagebox.showinfo("Pull Request Created", f"PR created: {pr.html_url}")
+                except Exception as pr_error:
+                    self.logger.warning(f"Failed to create PR: {pr_error}", "COMMIT")
+            
+            self.logger.info(f"README committed to GitHub repo: {repo_name}", "COMMIT")
+            return True
+            
+        except Exception as e:
+            messagebox.showerror("GitHub Error", f"Failed to commit to GitHub: {str(e)}")
+            self.logger.error(f"GitHub commit failed: {e}", "COMMIT")
+            return False
+    
+    def _get_github_token(self):
+        """Get GitHub token from user or config."""
+        # Try to get from config first (basic implementation)
+        try:
+            config_path = os.path.expanduser("~/.reporeadme/github_token.txt")
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    token = f.read().strip()
+                    if token:
+                        return token
+        except:
+            pass
+        
+        # Prompt user for token
+        token_dialog = GitHubTokenDialog(self.dialog)
+        return token_dialog.token if token_dialog.token else None
+    
+    def cancel(self):
+        """Cancel the commit dialog."""
+        self.dialog.destroy()
+
+
+class GitHubTokenDialog:
+    """Simple dialog for GitHub token input."""
+    
+    def __init__(self, parent):
+        self.token = None
+        
+        # Create dialog
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("🔑 GitHub Authentication Required")
+        self.dialog.geometry("500x300")
+        self.dialog.transient(parent)
+        self.dialog.grab_set()
+        
+        # Center dialog
+        self.dialog.update_idletasks()
+        x = parent.winfo_x() + (parent.winfo_width() // 2) - 250
+        y = parent.winfo_y() + (parent.winfo_height() // 2) - 150
+        self.dialog.geometry(f"+{x}+{y}")
+        
+        self.create_widgets()
+        
+        # Wait for dialog
+        parent.wait_window(self.dialog)
+    
+    def create_widgets(self):
+        """Create dialog widgets."""
+        # Header
+        header_frame = ttk.Frame(self.dialog)
+        header_frame.pack(fill='x', padx=20, pady=10)
+        
+        ttk.Label(header_frame, text="🔑 GitHub Personal Access Token Required", 
+                 font=('Arial', 12, 'bold')).pack()
+        
+        # Instructions
+        info_frame = ttk.LabelFrame(self.dialog, text="Setup Instructions", padding=10)
+        info_frame.pack(fill='x', padx=20, pady=10)
+        
+        instructions = [
+            "1. Go to GitHub.com → Settings → Developer settings → Personal access tokens",
+            "2. Click 'Generate new token' and select required scopes:",
+            "   • repo (for private repositories)",
+            "   • public_repo (for public repositories)",
+            "3. Copy the generated token and paste it below",
+            "4. The token will be saved securely for future use"
+        ]
+        
+        for instruction in instructions:
+            ttk.Label(info_frame, text=instruction, font=('Arial', 9)).pack(anchor='w', pady=1)
+        
+        # Token input
+        token_frame = ttk.LabelFrame(self.dialog, text="Access Token", padding=10)
+        token_frame.pack(fill='x', padx=20, pady=10)
+        
+        self.token_var = tk.StringVar()
+        token_entry = ttk.Entry(token_frame, textvariable=self.token_var, width=60, show='*')
+        token_entry.pack(fill='x', pady=5)
+        token_entry.focus()
+        
+        # Save option
+        self.save_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(token_frame, text="Save token securely for future use", 
+                       variable=self.save_var).pack(anchor='w', pady=5)
+        
+        # Buttons
+        button_frame = ttk.Frame(self.dialog)
+        button_frame.pack(fill='x', padx=20, pady=10)
+        
+        ttk.Button(button_frame, text="✅ Save & Continue", 
+                  command=self.save_token).pack(side='right', padx=5)
+        ttk.Button(button_frame, text="Cancel", 
+                  command=self.cancel).pack(side='right')
+        
+        # Bind Enter key
+        self.dialog.bind('<Return>', lambda e: self.save_token())
+    
+    def save_token(self):
+        """Save the token and close dialog."""
+        token = self.token_var.get().strip()
+        if not token:
+            messagebox.showerror("Invalid Token", "Please enter a valid GitHub token.")
+            return
+        
+        self.token = token
+        
+        # Save token if requested
+        if self.save_var.get():
+            try:
+                config_dir = os.path.expanduser("~/.reporeadme")
+                os.makedirs(config_dir, exist_ok=True)
+                
+                token_path = os.path.join(config_dir, "github_token.txt")
+                with open(token_path, 'w', encoding='utf-8') as f:
+                    f.write(token)
+                
+                # Set secure permissions (owner read-only)
+                os.chmod(token_path, 0o600)
+                
+            except Exception as e:
+                messagebox.showwarning("Save Failed", f"Failed to save token: {str(e)}")
+        
+        self.dialog.destroy()
+    
+    def cancel(self):
+        """Cancel the dialog."""
+        self.dialog.destroy()
 
 
 # Compatibility alias for CI testing

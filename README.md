@@ -9,6 +9,7 @@
 ## Table of Contents
 
 - [✨ Features](#features)
+- [🚀 GitHub Profile Builder](#github-profile-builder)
 - [🛠️ Technology Stack](#technology-stack)
 - [🚀 Getting Started](#getting-started)
 - [📖 Usage](#usage)
@@ -19,6 +20,7 @@
 
 ## ✨ Features
 
+### 📄 README Generation
 - **Multi-Platform Repository Analysis** - Support for GitHub, GitLab, and local repositories
 - **Intelligent Technology Detection** - Automatic identification of frameworks, languages, and tools
 - **Professional Templates** - 6 customizable README templates for different project types
@@ -27,6 +29,100 @@
 - **Real-time Preview** - See your README as you customize it
 - **Smart Caching** - Fast incremental analysis with intelligent file change detection
 - **Export Options** - Multiple output formats and batch export capabilities
+
+### 🚀 GitHub Profile Builder *(NEW)*
+- **Comprehensive Profile Analysis** - Analyzes all your repositories to build a complete developer profile
+- **Professional Portfolio Generation** - Creates stunning HTML portfolios ready for deployment
+- **PDF Export** - Generate print-ready portfolio documents using multiple PDF engines
+- **Developer Intelligence** - Automatically classifies your experience level and developer type
+- **Skills Assessment** - Advanced proficiency analysis with interactive progress bars
+- **Timeline Visualization** - Development timeline showing your project history
+- **Multiple Export Formats** - JSON, HTML, PDF, and resume-ready structured data
+- **Portfolio-Ready Output** - Deploy directly to GitHub Pages, Netlify, or any web host
+
+## 🚀 GitHub Profile Builder
+
+Transform your entire GitHub profile into a professional portfolio with our advanced Profile Builder! This powerful feature analyzes all your repositories to create comprehensive developer profiles and stunning portfolios.
+
+### ✨ Key Features
+
+#### 🔍 **Intelligent Analysis**
+- **Repository Discovery** - Automatically finds all your GitHub repositories (public and private)
+- **Technology Detection** - Identifies languages, frameworks, and tools across your entire profile
+- **Project Classification** - Categorizes projects by type (web apps, mobile apps, CLI tools, libraries, APIs)
+- **Developer Profiling** - Automatically determines your developer type and experience level
+
+#### 📊 **Advanced Insights**
+- **Skills Assessment** - Calculates proficiency levels for each programming language
+- **Collaboration Scoring** - Measures your open-source collaboration based on forks, stars, and documentation
+- **Innovation Metrics** - Evaluates creativity through project diversity and community engagement
+- **Development Timeline** - Creates chronological view of your coding journey
+
+#### 🎨 **Professional Portfolio Generation**
+- **Modern HTML Design** - Responsive, professional portfolio with smooth animations
+- **Interactive Elements** - Skills progress bars, timeline visualization, and project showcases
+- **Contact Integration** - Working contact forms that integrate with your email
+- **SEO Optimized** - Clean, semantic HTML ready for search engine indexing
+
+### 📁 Export Formats
+
+| Format | Description | Use Case |
+|--------|-------------|----------|
+| **📄 JSON Profile** | Complete structured data | Integration with other tools, APIs |
+| **🌐 HTML Portfolio** | Professional website | GitHub Pages, personal website |
+| **📋 PDF Portfolio** | Print-ready document | Job applications, networking |
+| **💼 Resume Data** | Resume-structured JSON | CV builders, job platforms |
+
+### 🚀 Getting Started with Profile Builder
+
+1. **Launch RepoReadme** and click the "🚀 Profile Builder" button
+2. **Configure Settings** - Enter your GitHub username and optional access token
+3. **Customize Options** - Choose which repositories to include and portfolio settings
+4. **Build Profile** - Click "Build My Profile" and watch the magic happen!
+5. **Export Results** - Choose your preferred format(s) and export your portfolio
+
+### 💡 Portfolio Features
+
+#### 🎯 **Professional Design**
+- Clean, modern layout with professional typography
+- Responsive design that looks great on all devices  
+- Smooth animations and hover effects
+- Professional color scheme and visual hierarchy
+
+#### 📱 **Interactive Elements**
+- Sticky navigation with smooth scrolling
+- Animated statistics cards with real-time counters
+- Interactive skills charts showing proficiency levels
+- Timeline visualization of your development journey
+- Working contact form with email integration
+
+#### 🔧 **Technical Excellence**
+- Fast loading with optimized assets
+- SEO-friendly structure with proper meta tags
+- Cross-browser compatibility
+- Print-optimized CSS for PDF generation
+
+### 📄 PDF Generation
+
+The Profile Builder includes robust PDF generation with multiple fallback options:
+
+- **WeasyPrint** - `pip install weasyprint` (Recommended for high quality)
+- **Playwright** - `pip install playwright && playwright install chromium`  
+- **wkhtmltopdf** - Download from https://wkhtmltopdf.org/
+- **Chrome/Chromium** - Uses system browser (Most compatible)
+
+The system automatically tries each method until one succeeds, ensuring PDF generation works on your system.
+
+### 🎨 Sample Output
+
+Your generated portfolio includes:
+
+- **Hero Section** - Professional header with your photo and key information
+- **Statistics Dashboard** - Repository count, stars received, languages used
+- **Skills Visualization** - Interactive charts and progress bars
+- **Project Showcase** - Featured projects with descriptions and links
+- **Development Timeline** - Visual timeline of your coding journey
+- **Contact Section** - Professional contact form and social links
 
 ## 🛠️ Technology Stack
 
@@ -73,7 +169,7 @@ python main.py
 
 ## 📖 Usage
 
-### Quick Start
+### Quick Start - README Generation
 
 1. **Launch RepoReadme** and you'll see the main interface
 2. **Add repositories** using the "Add Local Folder" or "Add GitHub Repo" buttons
@@ -83,6 +179,16 @@ python main.py
 6. **Customize options** like badges, table of contents, and emoji style
 7. **Preview your README** in the Preview tab
 8. **Generate and save** your professional README file
+
+### Quick Start - Profile Builder *(NEW)*
+
+1. **Launch RepoReadme** and click the "🚀 Profile Builder" button
+2. **Enter your GitHub username** and optionally provide an access token for private repos
+3. **Configure analysis settings** - choose which repositories to include
+4. **Click "Build My Profile"** and wait for analysis to complete
+5. **View your profile results** in the Results tab
+6. **Export your portfolio** in your preferred format (HTML, PDF, JSON, Resume)
+7. **Deploy your portfolio** to GitHub Pages, Netlify, or any web host
 
 ### Batch Operations
 
