@@ -1,6 +1,6 @@
-# 🚀 RepoReadme - Automatic README Generator
+# 🚀 RepoReadme - Professional Developer Profile Suite
 
-> Professional README generation for your repositories with intelligent analysis and beautiful templates
+> Comprehensive toolkit for README generation, CV creation, and LinkedIn profile optimization with intelligent GitHub analysis
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg?style=flat)](https://github.com/dev-alt/RepoReadme)
 [![Language](https://img.shields.io/badge/language-python-blue.svg?style=flat)](https://python.org)
@@ -9,6 +9,8 @@
 ## Table of Contents
 
 - [✨ Features](#features)
+- [📄 CV Generator](#cv-generator)
+- [💼 LinkedIn Profile Generator](#linkedin-profile-generator)
 - [🚀 GitHub Profile Builder](#github-profile-builder)
 - [🛠️ Technology Stack](#technology-stack)
 - [🚀 Getting Started](#getting-started)
@@ -30,7 +32,21 @@
 - **Smart Caching** - Fast incremental analysis with intelligent file change detection
 - **Export Options** - Multiple output formats and batch export capabilities
 
-### 🚀 GitHub Profile Builder *(NEW)*
+### 📄 **CV Generator** *(NEW)*
+- **Professional CV Creation** - Generate ATS-friendly CVs from your GitHub profile data
+- **Multiple CV Styles** - Modern, Classic, Minimal, Technical, and Creative templates
+- **Smart Content Generation** - Professional summaries, technical skills, and project descriptions
+- **Experience Synthesis** - Convert GitHub projects into professional work experience
+- **Export Formats** - HTML, PDF, and JSON with professional styling
+
+### 💼 **LinkedIn Profile Generator** *(NEW)*
+- **Optimized Content** - Generate LinkedIn headlines, summaries, and descriptions
+- **SEO Optimized** - Keyword optimization for better discoverability
+- **Content Strategy** - Post ideas, article topics, and networking suggestions
+- **Multiple Versions** - Short, medium, and long-form content variations
+- **Profile Optimization** - Tips and strategies for maximum LinkedIn impact
+
+### 🚀 **GitHub Profile Builder** *(Enhanced)*
 - **Comprehensive Profile Analysis** - Analyzes all your repositories to build a complete developer profile
 - **Professional Portfolio Generation** - Creates stunning HTML portfolios ready for deployment
 - **PDF Export** - Generate print-ready portfolio documents using multiple PDF engines
@@ -39,6 +55,79 @@
 - **Timeline Visualization** - Development timeline showing your project history
 - **Multiple Export Formats** - JSON, HTML, PDF, and resume-ready structured data
 - **Portfolio-Ready Output** - Deploy directly to GitHub Pages, Netlify, or any web host
+
+## 📄 CV Generator
+
+Transform your GitHub activity into professional, ATS-friendly CVs that showcase your development skills and experience. Perfect for job applications and career advancement.
+
+### ✨ Key Features
+
+#### 🎨 **Professional CV Styles**
+- **Modern** - Clean, contemporary design with color accents and professional typography
+- **Classic** - Traditional resume format perfect for conservative industries
+- **Minimal** - Ultra-clean design focused on content and readability
+- **Technical** - Developer-focused layout emphasizing technical projects and skills
+- **Creative** - Unique visual design for creative industry roles
+
+#### 📝 **Smart Content Generation**
+- **Professional Summaries** - AI-generated summaries based on your GitHub activity and achievements
+- **Technical Skills** - Automatically extracted and categorized from your repositories
+- **Project Descriptions** - Professional project descriptions optimized for recruiters
+- **Experience Synthesis** - Convert GitHub projects into traditional work experience format
+- **Achievement Metrics** - Highlight stars, forks, and community impact
+
+#### 💾 **Export Options**
+- **HTML** - Web-ready format optimized for ATS systems
+- **PDF** - Print-ready professional documents with perfect formatting
+- **JSON** - Structured data for integration with other tools
+
+### 🎯 **Perfect For**
+- Job applications at tech companies
+- Freelance developer portfolios
+- Career transitions into tech
+- Showcasing open-source contributions
+- Academic and research positions
+
+---
+
+## 💼 LinkedIn Profile Generator
+
+Optimize your LinkedIn presence with strategically crafted content that increases visibility, engagement, and career opportunities.
+
+### ✨ Key Features
+
+#### 📢 **Headline Optimization**
+- **Keyword-Rich Headlines** - SEO-optimized for LinkedIn's search algorithm
+- **Role-Targeted** - Customized for specific positions and industries
+- **Character-Optimized** - Perfect length for maximum impact and readability
+- **A/B Testing Ready** - Multiple variations for testing effectiveness
+
+#### 📄 **Professional Summaries**
+- **Short Version** - Concise 2-sentence elevator pitch
+- **Medium Version** - Comprehensive 3-4 paragraph professional overview
+- **Long Version** - Detailed story with personal touches and career philosophy
+- **Industry Targeted** - Customized content for specific sectors (FinTech, HealthTech, etc.)
+
+#### 💡 **Content Strategy**
+- **Post Ideas** - 15+ proven post concepts based on your technical work
+- **Article Topics** - 12+ in-depth topics for thought leadership content
+- **Networking Strategy** - Connection targets and outreach approaches
+- **Engagement Tips** - Best practices for building professional relationships
+
+#### 🔍 **SEO & Optimization**
+- **Keyword Integration** - Strategic placement of industry-relevant terms
+- **Profile Completeness** - Guidance for maximizing LinkedIn's algorithm favor
+- **Visibility Enhancement** - Tips for increasing profile views and connections
+- **Recruiter Optimization** - Content that appeals to talent acquisition professionals
+
+### 🎯 **Perfect For**
+- Job seekers looking to increase visibility
+- Developers building personal brands
+- Career changers entering tech
+- Freelancers attracting clients
+- Technical leaders building thought leadership
+
+---
 
 ## 🚀 GitHub Profile Builder
 

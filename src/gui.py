@@ -2,9 +2,9 @@
 """
 RepoReadme - Main GUI Application
 
-Professional GUI for automatic README generation, built on GitGuard's
-proven architecture with modern enhancements for repository analysis
-and documentation creation.
+Professional GUI for automatic README generation, CV creation, and LinkedIn
+profile optimization, built on proven architecture with modern enhancements
+for repository analysis and professional documentation.
 
 Features:
 - Repository selection (local folders and GitHub repos)
@@ -12,6 +12,9 @@ Features:
 - Batch processing capabilities
 - Real-time README generation
 - Multiple export formats
+- Professional CV generation from GitHub profiles
+- LinkedIn profile content optimization
+- GitHub profile analysis and portfolio building
 """
 
 import tkinter as tk
@@ -36,6 +39,8 @@ try:
     from .template_builder import create_custom_template_builder
     from .bulk_analyzer_dialog import create_bulk_analyzer
     from .profile_builder_dialog import create_profile_builder
+    from .cv_generator_dialog import create_cv_generator
+    from .linkedin_generator_dialog import create_linkedin_generator
     from github import Github
 except ImportError:
     from analyzers.repository_analyzer import RepositoryAnalyzer, ProjectMetadata  
@@ -46,6 +51,8 @@ except ImportError:
         from template_builder import create_custom_template_builder
         from bulk_analyzer_dialog import create_bulk_analyzer
         from profile_builder_dialog import create_profile_builder
+        from cv_generator_dialog import create_cv_generator
+        from linkedin_generator_dialog import create_linkedin_generator
     except ImportError:
         # Fallback functions if features fail to import
         def create_custom_template_builder(parent):
@@ -61,6 +68,16 @@ except ImportError:
         def create_profile_builder(parent):
             from tkinter import messagebox
             messagebox.showerror("Feature Unavailable", "GitHub Profile Builder is not available in this session.")
+            return None
+        
+        def create_cv_generator(parent):
+            from tkinter import messagebox
+            messagebox.showerror("Feature Unavailable", "CV Generator is not available in this session.")
+            return None
+        
+        def create_linkedin_generator(parent):
+            from tkinter import messagebox
+            messagebox.showerror("Feature Unavailable", "LinkedIn Generator is not available in this session.")
             return None
     try:
         from github import Github
@@ -92,7 +109,7 @@ class RepoReadmeGUI:
     def __init__(self):
         """Initialize the GUI application."""
         self.root = tk.Tk()
-        self.root.title("RepoReadme - Automatic README Generator")
+        self.root.title("RepoReadme - README, CV & LinkedIn Profile Generator")
         self.root.geometry("1500x950")
         self.root.minsize(1200, 700)
         
@@ -194,10 +211,18 @@ class RepoReadmeGUI:
                   command=self.add_github_repository, style='Action.TButton').pack(side='left', padx=2)
         ttk.Button(button_frame, text="🔍 Bulk Scanner", 
                   command=self.open_bulk_analyzer, style='Action.TButton').pack(side='left', padx=2)
-        ttk.Button(button_frame, text="🚀 Profile Builder", 
-                  command=self.open_profile_builder, style='Action.TButton').pack(side='left', padx=2)
         ttk.Button(button_frame, text="🗑️ Remove", 
                   command=self.remove_repository, style='Action.TButton').pack(side='left', padx=2)
+        
+        # Professional Tools Row
+        tools_frame = ttk.Frame(list_frame)
+        tools_frame.pack(fill='x', pady=(0, 10))
+        ttk.Button(tools_frame, text="🚀 Profile Builder", 
+                  command=self.open_profile_builder, style='Action.TButton').pack(side='left', padx=2)
+        ttk.Button(tools_frame, text="📄 CV Generator", 
+                  command=self.open_cv_generator, style='Action.TButton').pack(side='left', padx=2)
+        ttk.Button(tools_frame, text="💼 LinkedIn Generator", 
+                  command=self.open_linkedin_generator, style='Action.TButton').pack(side='left', padx=2)
         
         # Info note
         info_frame = ttk.Frame(list_frame)
@@ -1208,6 +1233,32 @@ class RepoReadmeGUI:
         except Exception as e:
             self.logger.error(f"Failed to open GitHub Profile Builder: {e}", "PROFILE_BUILDER")
             messagebox.showerror("Profile Builder Error", f"Failed to open GitHub Profile Builder: {str(e)}")
+    
+    def open_cv_generator(self):
+        """Open the CV Generator dialog."""
+        try:
+            # Create and show the CV generator dialog
+            cv_dialog = create_cv_generator(self.root)
+            
+            # The CV generator is self-contained and handles its own data sources and exports
+            self.logger.info("CV Generator opened")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to open CV Generator: {e}", "CV_GENERATOR")
+            messagebox.showerror("CV Generator Error", f"Failed to open CV Generator: {str(e)}")
+    
+    def open_linkedin_generator(self):
+        """Open the LinkedIn Profile Generator dialog."""
+        try:
+            # Create and show the LinkedIn generator dialog
+            linkedin_dialog = create_linkedin_generator(self.root)
+            
+            # The LinkedIn generator is self-contained and handles its own data sources and exports
+            self.logger.info("LinkedIn Generator opened")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to open LinkedIn Generator: {e}", "LINKEDIN_GENERATOR")
+            messagebox.showerror("LinkedIn Generator Error", f"Failed to open LinkedIn Generator: {str(e)}")
     
     # Event Handlers
     
