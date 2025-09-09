@@ -1208,10 +1208,12 @@ SKILLS & EXPERTISE:
             for tip in linkedin.profile_improvement_tips[:3]:
                 preview += f"• {tip}\n"
         
-        preview += f"\nTONE: {linkedin.tone.title()}"
-        preview += f"\nCONTENT LENGTH: {linkedin.content_length.title()}"
-        if linkedin.target_role:
-            preview += f"\nTARGET ROLE: {linkedin.target_role}"
+        # Get configuration info if available
+        if linkedin.config_used:
+            preview += f"\nTONE: {linkedin.config_used.tone.title()}"
+            preview += f"\nCONTENT LENGTH: {linkedin.config_used.content_length.title()}"
+            if linkedin.config_used.target_role:
+                preview += f"\nTARGET ROLE: {linkedin.config_used.target_role}"
         
         return preview
     
@@ -1331,6 +1333,8 @@ This will be converted to a full HTML portfolio in the next update.
         
         try:
             from templates.readme_templates import TemplateConfig
+            from analyzers.repository_analyzer import ProjectMetadata
+            
             template_config = TemplateConfig()
             template_config.template_name = self.template_var.get()
             
@@ -1557,6 +1561,8 @@ This will be converted to a full HTML portfolio in the next update.
             self.root.update_idletasks()
             
             from templates.readme_templates import TemplateConfig
+            from analyzers.repository_analyzer import ProjectMetadata
+            
             template_config = TemplateConfig()
             template_config.template_name = self.template_var.get()
             
