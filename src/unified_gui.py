@@ -457,6 +457,14 @@ class UnifiedRepoReadmeGUI:
                                                    font=('Arial', 10))
         self.ideas_text.pack(fill='both', expand=True, padx=10, pady=10)
         
+        # Preview tab
+        preview_frame = ttk.Frame(self.linkedin_notebook)
+        self.linkedin_notebook.add(preview_frame, text="👁️ Preview")
+        
+        self.linkedin_preview = scrolledtext.ScrolledText(preview_frame, wrap=tk.WORD,
+                                                         font=('Consolas', 9))
+        self.linkedin_preview.pack(fill='both', expand=True, padx=10, pady=10)
+        
         # LinkedIn actions
         linkedin_actions = ttk.Frame(linkedin_frame)
         linkedin_actions.pack(fill='x', padx=20, pady=(0, 20))
@@ -1238,10 +1246,8 @@ SKILLS & EXPERTISE:
                 from linkedin_generator import LinkedInExporter
                 exporter = LinkedInExporter(self.current_linkedin_data)
                 
-                if file_path.endswith('.html'):
-                    exporter.export_to_html(file_path)
-                else:
-                    exporter.export_to_text(file_path)
+                # LinkedIn only supports text export
+                exporter.export_to_text(file_path)
                 
                 self.export_log.insert(tk.END, f"✅ LinkedIn guide exported: {file_path}\n")
                 self.export_log.see(tk.END)
@@ -1515,11 +1521,6 @@ This will be converted to a full HTML portfolio in the next update.
                         linkedin_exporter.export_to_text(str(text_file))
                         exported_files.append(str(text_file))
                         
-                        # Export HTML file
-                        html_file = Path(folder_path) / f"LinkedIn_{tone.title()}_{length.title()}_{self.current_user_data.username}.html"
-                        linkedin_exporter.export_to_html(str(html_file))
-                        exported_files.append(str(html_file))
-                        
                         self.export_log.insert(tk.END, f"✅ Exported LinkedIn {tone.title()}-{length.title()}\n")
                         self.export_log.see(tk.END)
                         self.root.update_idletasks()
@@ -1678,10 +1679,6 @@ This will be converted to a full HTML portfolio in the next update.
                 # Export files
                 text_file = linkedin_folder / "LinkedIn_Profile.txt"
                 linkedin_exporter.export_to_text(str(text_file))
-                total_files += 1
-                
-                html_file = linkedin_folder / "LinkedIn_Profile.html"
-                linkedin_exporter.export_to_html(str(html_file))
                 total_files += 1
                 
             except Exception as e:
