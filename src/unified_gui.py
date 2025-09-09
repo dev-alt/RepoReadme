@@ -488,9 +488,16 @@ class UnifiedRepoReadmeGUI:
                                   font=('Segoe UI', 10))
         portfolio_desc.pack(anchor='w', pady=(0, 10))
         
-        generate_portfolio_btn = ttk.Button(portfolio_frame, text="🚀 Generate Portfolio",
+        portfolio_btn_frame = ttk.Frame(portfolio_frame)
+        portfolio_btn_frame.pack(fill='x', pady=5)
+        
+        generate_portfolio_btn = ttk.Button(portfolio_btn_frame, text="🚀 Generate Portfolio",
                                            command=self.generate_portfolio, style='Primary.TButton')
-        generate_portfolio_btn.pack()
+        generate_portfolio_btn.pack(side='left', padx=(0, 10))
+        
+        export_portfolio_btn = ttk.Button(portfolio_btn_frame, text="📥 Export Portfolio",
+                                         command=self.export_portfolio, style='Action.TButton')
+        export_portfolio_btn.pack(side='left')
         
         # Bulk export options
         bulk_frame = ttk.LabelFrame(export_frame, text="Bulk Export", padding=20)
@@ -1281,32 +1288,8 @@ SKILLS & EXPERTISE:
         try:
             self.status_var.set("Generating portfolio website...")
             
-            # Generate portfolio HTML using existing profile builder
-            from profile_builder import GitHubProfileBuilder, ProfileBuilderConfig
-            
-            config = ProfileBuilderConfig()
-            config.enable_caching = True
-            config.max_repositories = 12
-            config.include_private_repos = False
-            
-            builder = GitHubProfileBuilder(config)
-            
-            # For now, create a simple portfolio preview since the full HTML generation
-            # requires repository analysis which we'll implement later
-            portfolio_preview = f"""
-Portfolio Generation Preview
-
-User: {self.current_user_data.name or self.current_user_data.username}
-Repositories: {len(self.current_user_data.repositories)}
-Style: {self.portfolio_style_var.get()}
-Dark Mode: {self.portfolio_dark_mode_var.get()}
-
-Top Repositories:
-{chr(10).join(f'• {repo.name}: {repo.description or "No description"}' for repo in self.current_user_data.repositories[:5])}
-
-This will be converted to a full HTML portfolio in the next update.
-"""
-            portfolio_html = portfolio_preview
+            # Generate actual portfolio HTML
+            portfolio_html = self._generate_portfolio_html()
             
             # Show success message
             messagebox.showinfo("Portfolio Generated", 
@@ -1326,6 +1309,353 @@ This will be converted to a full HTML portfolio in the next update.
             self.logger.error(f"Portfolio generation failed: {e}")
             messagebox.showerror("Portfolio Generation Error", f"Failed to generate portfolio:\n{str(e)}")
             self.status_var.set("❌ Portfolio generation failed")
+    
+    def export_portfolio(self):
+        """Export generated portfolio HTML to file."""
+        if not hasattr(self, 'current_portfolio_html') or not self.current_portfolio_html:
+            messagebox.showwarning("No Portfolio", 
+                                 "Please generate a portfolio first using the 'Generate Portfolio' button.")
+            return
+        
+        try:
+            # Ask user for save location
+            filename = filedialog.asksaveasfilename(
+                title="Save Portfolio",
+                defaultextension=".html",
+                filetypes=[("HTML files", "*.html"), ("All files", "*.*")],
+                initialfile=f"{self.current_user_data.username}_portfolio.html"
+            )
+            
+            if filename:
+                # Save portfolio HTML to file
+                with open(filename, 'w', encoding='utf-8') as f:
+                    f.write(self.current_portfolio_html)
+                
+                self.status_var.set("✅ Portfolio exported successfully")
+                
+                messagebox.showinfo("Portfolio Exported", 
+                                   f"Portfolio saved successfully!\n\n"
+                                   f"📁 Location: {filename}\n"
+                                   f"📊 Size: {len(self.current_portfolio_html)} characters\n\n"
+                                   f"Open the HTML file in your browser to view your portfolio!")
+                
+                self.logger.info(f"Portfolio exported to: {filename}")
+                
+        except Exception as e:
+            self.logger.error(f"Portfolio export failed: {e}")
+            messagebox.showerror("Export Error", f"Failed to export portfolio:\n{str(e)}")
+            self.status_var.set("❌ Portfolio export failed")
+    
+    def _generate_portfolio_html(self) -> str:
+        """Generate a complete HTML portfolio website."""
+        user_data = self.current_user_data
+        profile_data = user_data.profile_data
+        
+        # Sort repositories by stars and filter out forks
+        repos = [r for r in user_data.repositories if not r.is_fork]
+        repos.sort(key=lambda x: x.stars, reverse=True)
+        featured_repos = repos[:12]  # Top 12 repositories
+        
+        # Get user's primary languages
+        lang_stats = {}
+        for repo in repos:
+            if repo.languages:
+                for lang, bytes_count in repo.languages.items():
+                    lang_stats[lang] = lang_stats.get(lang, 0) + bytes_count
+        
+        # Convert to percentages and get top languages
+        if lang_stats:
+            total_bytes = sum(lang_stats.values())
+            top_languages = sorted(
+                [(lang, (bytes_count / total_bytes) * 100) for lang, bytes_count in lang_stats.items()],
+                key=lambda x: x[1], reverse=True
+            )[:6]
+        else:
+            top_languages = []
+        
+        # Portfolio style configuration
+        style = self.portfolio_style_var.get()
+        dark_mode = self.portfolio_dark_mode_var.get()
+        
+        # Color schemes
+        if dark_mode:
+            bg_color = "#1a1a1a"
+            text_color = "#ffffff"
+            card_bg = "#2d2d2d"
+            accent_color = "#4a9eff"
+            border_color = "#404040"
+        else:
+            bg_color = "#ffffff"
+            text_color = "#333333"
+            card_bg = "#f8f9fa"
+            accent_color = "#007bff"
+            border_color = "#dee2e6"
+        
+        # Generate HTML content
+        html_content = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{user_data.name or user_data.username} - Developer Portfolio</title>
+    <style>
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: {bg_color};
+            color: {text_color};
+            line-height: 1.6;
+        }}
+        
+        .container {{
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }}
+        
+        .header {{
+            text-align: center;
+            padding: 60px 0;
+            background: linear-gradient(135deg, {accent_color}, #6c5ce7);
+            color: white;
+            margin-bottom: 40px;
+        }}
+        
+        .profile-img {{
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            margin: 0 auto 20px;
+            background: white;
+            padding: 4px;
+        }}
+        
+        .header h1 {{
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }}
+        
+        .header p {{
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }}
+        
+        .stats {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }}
+        
+        .stat-card {{
+            background: {card_bg};
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid {border_color};
+        }}
+        
+        .stat-number {{
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: {accent_color};
+            display: block;
+        }}
+        
+        .stat-label {{
+            font-size: 1rem;
+            opacity: 0.8;
+            margin-top: 5px;
+        }}
+        
+        .section {{
+            margin-bottom: 50px;
+        }}
+        
+        .section h2 {{
+            font-size: 2rem;
+            margin-bottom: 30px;
+            color: {accent_color};
+            border-bottom: 2px solid {accent_color};
+            padding-bottom: 10px;
+        }}
+        
+        .languages {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 40px;
+        }}
+        
+        .language-item {{
+            background: {card_bg};
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid {border_color};
+        }}
+        
+        .language-name {{
+            font-weight: bold;
+            margin-bottom: 5px;
+        }}
+        
+        .language-percent {{
+            color: {accent_color};
+            font-size: 0.9rem;
+        }}
+        
+        .repositories {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+        }}
+        
+        .repo-card {{
+            background: {card_bg};
+            padding: 25px;
+            border-radius: 10px;
+            border: 1px solid {border_color};
+            transition: transform 0.2s, box-shadow 0.2s;
+        }}
+        
+        .repo-card:hover {{
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }}
+        
+        .repo-name {{
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: {accent_color};
+            text-decoration: none;
+            display: block;
+            margin-bottom: 10px;
+        }}
+        
+        .repo-description {{
+            margin-bottom: 15px;
+            opacity: 0.8;
+        }}
+        
+        .repo-stats {{
+            display: flex;
+            gap: 15px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }}
+        
+        .repo-language {{
+            background: {accent_color};
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }}
+        
+        .footer {{
+            text-align: center;
+            padding: 40px 0;
+            border-top: 1px solid {border_color};
+            margin-top: 60px;
+            opacity: 0.7;
+        }}
+        
+        @media (max-width: 768px) {{
+            .header h1 {{ font-size: 2rem; }}
+            .repositories {{ grid-template-columns: 1fr; }}
+            .stats {{ grid-template-columns: repeat(2, 1fr); }}
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <div class="profile-img" style="background-image: url('{user_data.avatar_url}'); background-size: cover; background-position: center;"></div>
+            <h1>{user_data.name or user_data.username}</h1>
+            <p>{user_data.bio or "Software Developer"}</p>
+            {f'<p>📍 {user_data.location}</p>' if user_data.location else ''}
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="stats">
+            <div class="stat-card">
+                <span class="stat-number">{user_data.public_repos}</span>
+                <div class="stat-label">Public Repositories</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number">{user_data.total_stars}</span>
+                <div class="stat-label">Total Stars</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number">{user_data.followers}</span>
+                <div class="stat-label">Followers</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number">{len(featured_repos)}</span>
+                <div class="stat-label">Featured Projects</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>💻 Programming Languages</h2>
+            <div class="languages">"""
+        
+        # Add languages
+        for lang, percentage in top_languages:
+            html_content += f"""
+                <div class="language-item">
+                    <div class="language-name">{lang}</div>
+                    <div class="language-percent">{percentage:.1f}%</div>
+                </div>"""
+        
+        html_content += """
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>🚀 Featured Repositories</h2>
+            <div class="repositories">"""
+        
+        # Add repositories
+        for repo in featured_repos:
+            repo_desc = repo.description or "No description available"
+            if len(repo_desc) > 120:
+                repo_desc = repo_desc[:120] + "..."
+                
+            html_content += f"""
+                <div class="repo-card">
+                    <a href="{repo.url}" class="repo-name" target="_blank">{repo.name}</a>
+                    <div class="repo-description">{repo_desc}</div>
+                    <div class="repo-stats">
+                        <span>⭐ {repo.stars}</span>
+                        <span>🍴 {repo.forks}</span>
+                        <span>👁️ {repo.watchers}</span>
+                        {f'<span class="repo-language">{repo.language}</span>' if repo.language else ''}
+                    </div>
+                </div>"""
+        
+        html_content += f"""
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <div class="container">
+            <p>Generated with RepoReadme Professional Suite</p>
+            <p>Last updated: {datetime.now().strftime('%B %d, %Y')}</p>
+        </div>
+    </div>
+</body>
+</html>"""
+        
+        return html_content
     
     def export_all_readmes(self):
         """Export all README files for repositories."""
