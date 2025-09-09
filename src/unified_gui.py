@@ -571,9 +571,66 @@ class UnifiedRepoReadmeGUI:
             
             if response is True:  # Use cached data
                 self.current_user_data = cached_data
+                
+                # Rebuild profile data if missing (needed for CV/LinkedIn generation)
+                if not cached_data.profile_data:
+                    try:
+                        self.progress_log.config(state='normal')
+                        timestamp = datetime.now().strftime("%H:%M:%S")
+                        self.progress_log.insert(tk.END, f"[{timestamp}] 🔄 Rebuilding profile data for CV/LinkedIn generation...\n")
+                        self.progress_log.see(tk.END)
+                        self.progress_log.config(state='disabled')
+                        self.root.update_idletasks()
+                        
+                        # Import GitHubProfile for profile building
+                        from profile_builder import GitHubProfile
+                        
+                        # Create basic profile from cached user data
+                        profile = GitHubProfile()
+                        profile.username = cached_data.username
+                        profile.name = cached_data.name
+                        profile.email = cached_data.email
+                        profile.bio = cached_data.bio
+                        profile.location = cached_data.location
+                        profile.website = cached_data.website
+                        profile.avatar_url = cached_data.avatar_url
+                        profile.total_repositories = len(cached_data.repositories)
+                        profile.total_stars_received = cached_data.total_stars
+                        profile.followers = cached_data.followers
+                        profile.following = cached_data.following
+                        
+                        # Basic language analysis from repositories
+                        languages = {}
+                        for repo in cached_data.repositories:
+                            if repo.languages:
+                                for lang, bytes_count in repo.languages.items():
+                                    languages[lang] = languages.get(lang, 0) + bytes_count
+                        
+                        # Convert to percentages
+                        if languages:
+                            total_bytes = sum(languages.values())
+                            profile.languages_used = {lang: (bytes_count / total_bytes) * 100 
+                                                    for lang, bytes_count in languages.items()}
+                            profile.primary_languages = sorted(profile.languages_used.keys(), 
+                                                             key=lambda x: profile.languages_used[x], reverse=True)[:5]
+                        
+                        # Basic project analysis
+                        profile.has_web_projects = any('web' in repo.topics or 'html' in str(repo.languages).lower() 
+                                                      for repo in cached_data.repositories)
+                        profile.has_apis = any('api' in repo.topics or 'rest' in repo.topics 
+                                             for repo in cached_data.repositories)
+                        profile.has_data_projects = any('data' in repo.topics or 'python' in str(repo.languages).lower()
+                                                       for repo in cached_data.repositories)
+                        
+                        cached_data.profile_data = profile
+                        
+                    except Exception as e:
+                        self.logger.warning(f"Failed to rebuild profile data: {e}")
+                
                 self._update_scan_tab()
+                self._update_readme_combo()  # Update README tab repository list
                 self.status_var.set("✅ Loaded cached GitHub data")
-                messagebox.showinfo("Cache Loaded", "Using cached data. Switch to the Analyze tab to view.")
+                messagebox.showinfo("Cache Loaded", "Cached data loaded successfully! All tabs are now ready to use.")
                 return
             elif response is None:  # Cancel
                 return
