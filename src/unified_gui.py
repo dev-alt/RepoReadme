@@ -745,8 +745,8 @@ URLs:
             metadata = ProjectMetadata(
                 name=selected_repo.name,
                 description=selected_repo.description or "",
-                language=selected_repo.language,
-                languages=selected_repo.languages,
+                primary_language=selected_repo.language or "",
+                languages=selected_repo.languages or {},
                 topics=selected_repo.topics,
                 has_readme=selected_repo.has_readme,
                 has_license=selected_repo.has_license,
@@ -1068,7 +1068,9 @@ TECHNICAL SKILLS:
         
         linkedin = self.current_linkedin_data
         
-        preview = f"""LINKEDIN PROFILE PREVIEW - {linkedin.personal_info.get('name', 'Professional')}
+        # Get name from current user data
+        name = self.current_user_data.name if self.current_user_data and self.current_user_data.name else 'Professional'
+        preview = f"""LINKEDIN PROFILE PREVIEW - {name}
 {'='*60}
 
 PROFESSIONAL HEADLINE:
@@ -1118,7 +1120,8 @@ SKILLS & EXPERTISE:
             messagebox.showwarning("No LinkedIn Data", "Please generate LinkedIn content first.")
             return
         
-        filename = f"LinkedIn_Guide_{self.current_linkedin_data.personal_info.get('name', 'Professional').replace(' ', '_')}.txt"
+        name = self.current_user_data.name if self.current_user_data and self.current_user_data.name else 'Professional'
+        filename = f"LinkedIn_Guide_{name.replace(' ', '_')}.txt"
         
         file_path = filedialog.asksaveasfilename(
             title="Export LinkedIn Guide",
@@ -1170,20 +1173,31 @@ SKILLS & EXPERTISE:
             self.status_var.set("Generating portfolio website...")
             
             # Generate portfolio HTML using existing profile builder
-            from profile_builder import ProfileBuilder, ProfileConfig
+            from profile_builder import GitHubProfileBuilder, ProfileBuilderConfig
             
-            config = ProfileConfig()
-            config.template_style = self.portfolio_style_var.get()
-            config.include_repositories = True
-            config.include_skills = True
-            config.include_contact = True
-            config.dark_mode = self.portfolio_dark_mode_var.get()
+            config = ProfileBuilderConfig()
+            config.enable_caching = True
+            config.max_repositories = 12
+            config.include_private_repos = False
             
-            builder = ProfileBuilder(config)
-            portfolio_html = builder.generate_profile_html(
-                self.current_user_data.profile_data,
-                repositories=self.current_user_data.repositories[:12]  # Top 12 repos
-            )
+            builder = GitHubProfileBuilder(config)
+            
+            # For now, create a simple portfolio preview since the full HTML generation
+            # requires repository analysis which we'll implement later
+            portfolio_preview = f"""
+Portfolio Generation Preview
+
+User: {self.current_user_data.name or self.current_user_data.username}
+Repositories: {len(self.current_user_data.repositories)}
+Style: {self.portfolio_style_var.get()}
+Dark Mode: {self.portfolio_dark_mode_var.get()}
+
+Top Repositories:
+{chr(10).join(f'• {repo.name}: {repo.description or "No description"}' for repo in self.current_user_data.repositories[:5])}
+
+This will be converted to a full HTML portfolio in the next update.
+"""
+            portfolio_html = portfolio_preview
             
             # Display preview
             self.portfolio_preview.delete('1.0', tk.END)

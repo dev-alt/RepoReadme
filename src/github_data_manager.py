@@ -259,9 +259,19 @@ class GitHubDataManager:
                 repositories.append(repo)
                 
         elif scope == "all":
-            self._update_progress("📂 Fetching all repositories...")
-            for repo in user.get_repos(type='all', sort='updated'):
+            self._update_progress("📂 Fetching all repositories (public + private)...")
+            # First get public repos
+            for repo in user.get_repos(type='public', sort='updated'):
                 repositories.append(repo)
+            
+            # Then get private repos (if accessible)
+            try:
+                for repo in user.get_repos(type='private', sort='updated'):
+                    repositories.append(repo)
+                self.logger.info(f"Successfully fetched {len([r for r in repositories if r.private])} private repositories")
+            except Exception as e:
+                self.logger.warning(f"Could not access private repositories: {e}")
+                self.logger.info("This may be due to insufficient token permissions or no private repos exist")
                 
         elif scope == "private":
             self._update_progress("📂 Fetching private repositories...")
@@ -377,6 +387,17 @@ class GitHubDataManager:
         """Download repository files to local storage."""
         repo_local_dir = self.local_repos_dir / repo.owner.login / repo.name
         repo_local_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Check if repository files already exist
+        if repo_local_dir.exists() and any(repo_local_dir.iterdir()):
+            # Check if there are actual content files (not just empty dirs)
+            has_content = any(
+                item.is_file() or (item.is_dir() and any(item.iterdir()))
+                for item in repo_local_dir.iterdir()
+            )
+            if has_content:
+                self.logger.info(f"Repository {repo.name} already downloaded, skipping...")
+                return str(repo_local_dir)
         
         try:
             # Download as zip file
