@@ -864,8 +864,11 @@ URLs:
             metadata.author_email = self.current_user_data.email
             
             # Generate README
-            template_name = self.template_var.get()
-            readme_content = self.template_engine.generate_readme(metadata, template_name)
+            from templates.readme_templates import TemplateConfig
+            
+            template_config = TemplateConfig()
+            template_config.template_name = self.template_var.get()
+            readme_content = self.template_engine.generate_readme(metadata, template_config)
             
             # Display in preview
             self.readme_preview.delete('1.0', tk.END)
@@ -1184,25 +1187,25 @@ SKILLS & EXPERTISE:
             for category, skills in linkedin.skill_categories.items():
                 preview += f"{category.title()}:\n  {', '.join(skills[:10])}\n"
         
-        if linkedin.featured_content:
-            preview += f"\nFEATURED CONTENT ({len(linkedin.featured_content)}):\n"
-            for content in linkedin.featured_content[:3]:
-                preview += f"• {content['title']}\n"
-                preview += f"  {content['description'][:120]}{'...' if len(content['description']) > 120 else ''}\n\n"
+        if linkedin.project_descriptions:
+            preview += f"\nFEATURED PROJECTS ({len(linkedin.project_descriptions)}):\n"
+            for project in linkedin.project_descriptions[:3]:
+                preview += f"• {project.get('title', 'Project')}\n"
+                preview += f"  {project.get('description', 'No description')[:120]}{'...' if len(project.get('description', '')) > 120 else ''}\n\n"
         
-        if linkedin.content_ideas:
-            preview += f"CONTENT STRATEGY IDEAS ({len(linkedin.content_ideas)}):\n"
-            for idea in linkedin.content_ideas[:5]:
+        if linkedin.post_ideas:
+            preview += f"CONTENT STRATEGY IDEAS ({len(linkedin.post_ideas)}):\n"
+            for idea in linkedin.post_ideas[:5]:
                 preview += f"• {idea}\n"
         
-        if linkedin.networking_strategy:
-            preview += f"\nNETWORKING STRATEGIES:\n"
-            for strategy in linkedin.networking_strategy[:3]:
-                preview += f"• {strategy}\n"
+        if linkedin.connection_targets:
+            preview += f"\nNETWORKING TARGETS:\n"
+            for target in linkedin.connection_targets[:3]:
+                preview += f"• {target}\n"
         
-        if linkedin.optimization_tips:
+        if linkedin.profile_improvement_tips:
             preview += f"\nOPTIMIZATION TIPS:\n"
-            for tip in linkedin.optimization_tips[:3]:
+            for tip in linkedin.profile_improvement_tips[:3]:
                 preview += f"• {tip}\n"
         
         preview += f"\nTONE: {linkedin.tone.title()}"
@@ -1317,20 +1320,412 @@ This will be converted to a full HTML portfolio in the next update.
             self.status_var.set("❌ Portfolio generation failed")
     
     def export_all_readmes(self):
-        """Export all README files."""
-        messagebox.showinfo("Coming Soon", "Bulk README export will be implemented next!")
+        """Export all README files for repositories."""
+        if not self.current_user_data or not self.current_user_data.repositories:
+            messagebox.showwarning("No Data", "Please fetch GitHub data first.")
+            return
+        
+        folder_path = filedialog.askdirectory(title="Select folder to export READMEs")
+        if not folder_path:
+            return
+        
+        try:
+            from templates.readme_templates import TemplateConfig
+            template_config = TemplateConfig()
+            template_config.template_name = self.template_var.get()
+            
+            exported_count = 0
+            total_repos = len([r for r in self.current_user_data.repositories if not r.is_fork])
+            
+            for repo in self.current_user_data.repositories:
+                if repo.is_fork:  # Skip forks
+                    continue
+                
+                try:
+                    # Create metadata for repository
+                    metadata = ProjectMetadata(
+                        name=repo.name,
+                        description=repo.description or "",
+                        primary_language=repo.language or "",
+                        languages=repo.languages or {},
+                        topics=repo.topics or [],
+                        has_docker=repo.has_dockerfile,
+                        has_ci=repo.has_ci,
+                        has_tests=repo.has_tests,
+                        repository_url=repo.url,
+                        stars_count=repo.stars,
+                        forks_count=repo.forks,
+                        created_date=repo.created_at,
+                        last_updated=repo.updated_at
+                    )
+                    
+                    # Add user context
+                    metadata.author_name = self.current_user_data.name or self.current_user_data.username
+                    metadata.author_email = self.current_user_data.email
+                    
+                    # Generate README
+                    readme_content = self.template_engine.generate_readme(metadata, template_config)
+                    
+                    # Save to file
+                    file_path = Path(folder_path) / f"{repo.name}_README.md"
+                    with open(file_path, 'w', encoding='utf-8') as f:
+                        f.write(readme_content)
+                    
+                    exported_count += 1
+                    
+                    # Update progress
+                    self.export_log.insert(tk.END, f"✅ Exported {repo.name}_README.md\n")
+                    self.export_log.see(tk.END)
+                    self.root.update_idletasks()
+                    
+                except Exception as e:
+                    self.export_log.insert(tk.END, f"❌ Failed to export {repo.name}: {str(e)}\n")
+                    self.export_log.see(tk.END)
+            
+            messagebox.showinfo("Export Complete", 
+                               f"Exported {exported_count}/{total_repos} README files to:\n{folder_path}")
+            
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to export READMEs:\n{str(e)}")
     
     def export_cv_package(self):
-        """Export complete CV package."""
-        messagebox.showinfo("Coming Soon", "CV package export will be implemented next!")
+        """Export complete CV package (all styles and formats)."""
+        if not self.current_user_data or not self.current_user_data.profile_data:
+            messagebox.showwarning("No Data", "Please fetch GitHub data first.")
+            return
+        
+        folder_path = filedialog.askdirectory(title="Select folder to export CV package")
+        if not folder_path:
+            return
+        
+        try:
+            from cv_generator import CVGenerator, CVConfig, CVExporter
+            
+            cv_styles = ["modern", "classic", "minimal", "technical", "creative"]
+            exported_files = []
+            
+            for style in cv_styles:
+                try:
+                    # Create CV config for each style
+                    cv_config = CVConfig()
+                    cv_config.cv_style = style
+                    cv_config.target_role = self.cv_target_role_var.get() or None
+                    cv_config.include_summary = True
+                    cv_config.include_skills = True
+                    cv_config.include_projects = True
+                    cv_config.include_achievements = True
+                    cv_config.use_professional_language = True
+                    
+                    # Prepare additional info
+                    additional_info = {
+                        'name': self.current_user_data.name,
+                        'email': self.current_user_data.email,
+                        'location': self.current_user_data.location,
+                        'website': self.current_user_data.website
+                    }
+                    
+                    # Generate CV
+                    cv_generator = CVGenerator(cv_config)
+                    cv_data = cv_generator.generate_cv_from_profile(
+                        self.current_user_data.profile_data, additional_info
+                    )
+                    
+                    # Export HTML
+                    cv_exporter = CVExporter(cv_data)
+                    html_file = Path(folder_path) / f"CV_{style.title()}_{self.current_user_data.username}.html"
+                    cv_exporter.export_to_html(str(html_file))
+                    exported_files.append(str(html_file))
+                    
+                    # Try to export PDF
+                    try:
+                        pdf_file = Path(folder_path) / f"CV_{style.title()}_{self.current_user_data.username}.pdf"
+                        cv_exporter.export_to_pdf(str(pdf_file))
+                        exported_files.append(str(pdf_file))
+                    except Exception as pdf_error:
+                        self.export_log.insert(tk.END, f"⚠️  PDF export failed for {style}: {str(pdf_error)}\n")
+                    
+                    self.export_log.insert(tk.END, f"✅ Exported CV {style.title()}\n")
+                    self.export_log.see(tk.END)
+                    self.root.update_idletasks()
+                    
+                except Exception as e:
+                    self.export_log.insert(tk.END, f"❌ Failed to export {style} CV: {str(e)}\n")
+                    self.export_log.see(tk.END)
+            
+            messagebox.showinfo("CV Package Export Complete", 
+                               f"Exported {len(exported_files)} CV files to:\n{folder_path}")
+            
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to export CV package:\n{str(e)}")
     
     def export_linkedin_package(self):
-        """Export LinkedIn package."""
-        messagebox.showinfo("Coming Soon", "LinkedIn package export will be implemented next!")
+        """Export LinkedIn optimization package."""
+        if not self.current_user_data or not self.current_user_data.profile_data:
+            messagebox.showwarning("No Data", "Please fetch GitHub data first.")
+            return
+        
+        folder_path = filedialog.askdirectory(title="Select folder to export LinkedIn package")
+        if not folder_path:
+            return
+        
+        try:
+            from linkedin_generator import LinkedInGenerator, LinkedInConfig, LinkedInExporter
+            
+            tones = ["professional", "casual", "enthusiastic"]
+            lengths = ["short", "medium", "detailed"]
+            exported_files = []
+            
+            for tone in tones:
+                for length in lengths:
+                    try:
+                        # Create LinkedIn config for each combination
+                        linkedin_config = LinkedInConfig()
+                        linkedin_config.tone = tone
+                        linkedin_config.content_length = length
+                        linkedin_config.target_role = self.linkedin_target_role_var.get() or None
+                        linkedin_config.include_contact_info = True
+                        linkedin_config.include_skills = True
+                        linkedin_config.include_achievements = True
+                        linkedin_config.focus_area = "technology"
+                        linkedin_config.use_strategic_keywords = True
+                        
+                        # Prepare additional info
+                        additional_info = {
+                            'name': self.current_user_data.name,
+                            'email': self.current_user_data.email,
+                            'location': self.current_user_data.location,
+                            'website': self.current_user_data.website
+                        }
+                        
+                        # Generate LinkedIn content
+                        linkedin_generator = LinkedInGenerator(linkedin_config)
+                        linkedin_data = linkedin_generator.generate_linkedin_profile(
+                            self.current_user_data.profile_data, additional_info
+                        )
+                        
+                        # Export files
+                        linkedin_exporter = LinkedInExporter(linkedin_data)
+                        
+                        # Export text file
+                        text_file = Path(folder_path) / f"LinkedIn_{tone.title()}_{length.title()}_{self.current_user_data.username}.txt"
+                        linkedin_exporter.export_to_text(str(text_file))
+                        exported_files.append(str(text_file))
+                        
+                        # Export HTML file
+                        html_file = Path(folder_path) / f"LinkedIn_{tone.title()}_{length.title()}_{self.current_user_data.username}.html"
+                        linkedin_exporter.export_to_html(str(html_file))
+                        exported_files.append(str(html_file))
+                        
+                        self.export_log.insert(tk.END, f"✅ Exported LinkedIn {tone.title()}-{length.title()}\n")
+                        self.export_log.see(tk.END)
+                        self.root.update_idletasks()
+                        
+                    except Exception as e:
+                        self.export_log.insert(tk.END, f"❌ Failed to export {tone}-{length} LinkedIn: {str(e)}\n")
+                        self.export_log.see(tk.END)
+            
+            messagebox.showinfo("LinkedIn Package Export Complete", 
+                               f"Exported {len(exported_files)} LinkedIn files to:\n{folder_path}")
+            
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to export LinkedIn package:\n{str(e)}")
     
     def export_full_archive(self):
-        """Export full project archive."""
-        messagebox.showinfo("Coming Soon", "Full archive export will be implemented next!")
+        """Export complete professional archive with all content."""
+        if not self.current_user_data or not self.current_user_data.profile_data:
+            messagebox.showwarning("No Data", "Please fetch GitHub data first.")
+            return
+        
+        folder_path = filedialog.askdirectory(title="Select folder to export complete archive")
+        if not folder_path:
+            return
+        
+        try:
+            # Create timestamped archive folder
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            archive_folder = Path(folder_path) / f"RepoReadme_Archive_{self.current_user_data.username}_{timestamp}"
+            archive_folder.mkdir(exist_ok=True)
+            
+            total_files = 0
+            
+            # 1. Export README files
+            readme_folder = archive_folder / "READMEs"
+            readme_folder.mkdir(exist_ok=True)
+            
+            self.export_log.insert(tk.END, "📂 Exporting README files...\n")
+            self.export_log.see(tk.END)
+            self.root.update_idletasks()
+            
+            from templates.readme_templates import TemplateConfig
+            template_config = TemplateConfig()
+            template_config.template_name = self.template_var.get()
+            
+            for repo in self.current_user_data.repositories:
+                if not repo.is_fork:
+                    try:
+                        metadata = ProjectMetadata(
+                            name=repo.name,
+                            description=repo.description or "",
+                            primary_language=repo.language or "",
+                            languages=repo.languages or {},
+                            topics=repo.topics or [],
+                            has_docker=repo.has_dockerfile,
+                            has_ci=repo.has_ci,
+                            has_tests=repo.has_tests,
+                            repository_url=repo.url,
+                            stars_count=repo.stars,
+                            forks_count=repo.forks,
+                            created_date=repo.created_at,
+                            last_updated=repo.updated_at
+                        )
+                        
+                        metadata.author_name = self.current_user_data.name or self.current_user_data.username
+                        metadata.author_email = self.current_user_data.email
+                        
+                        readme_content = self.template_engine.generate_readme(metadata, template_config)
+                        
+                        readme_file = readme_folder / f"{repo.name}_README.md"
+                        with open(readme_file, 'w', encoding='utf-8') as f:
+                            f.write(readme_content)
+                        
+                        total_files += 1
+                    except Exception as e:
+                        self.export_log.insert(tk.END, f"⚠️  README export failed for {repo.name}: {str(e)}\n")
+            
+            # 2. Export CV package
+            cv_folder = archive_folder / "CVs"
+            cv_folder.mkdir(exist_ok=True)
+            
+            self.export_log.insert(tk.END, "💼 Exporting CV package...\n")
+            self.export_log.see(tk.END)
+            self.root.update_idletasks()
+            
+            try:
+                from cv_generator import CVGenerator, CVConfig, CVExporter
+                cv_styles = ["modern", "classic", "minimal", "technical", "creative"]
+                
+                for style in cv_styles:
+                    cv_config = CVConfig()
+                    cv_config.cv_style = style
+                    cv_config.target_role = self.cv_target_role_var.get() or None
+                    
+                    additional_info = {
+                        'name': self.current_user_data.name,
+                        'email': self.current_user_data.email,
+                        'location': self.current_user_data.location,
+                        'website': self.current_user_data.website
+                    }
+                    
+                    cv_generator = CVGenerator(cv_config)
+                    cv_data = cv_generator.generate_cv_from_profile(
+                        self.current_user_data.profile_data, additional_info
+                    )
+                    
+                    cv_exporter = CVExporter(cv_data)
+                    
+                    # Export HTML
+                    html_file = cv_folder / f"CV_{style.title()}.html"
+                    cv_exporter.export_to_html(str(html_file))
+                    total_files += 1
+                    
+                    # Try PDF
+                    try:
+                        pdf_file = cv_folder / f"CV_{style.title()}.pdf"
+                        cv_exporter.export_to_pdf(str(pdf_file))
+                        total_files += 1
+                    except:
+                        pass  # Skip PDF if not available
+                        
+            except Exception as e:
+                self.export_log.insert(tk.END, f"⚠️  CV export failed: {str(e)}\n")
+            
+            # 3. Export LinkedIn package
+            linkedin_folder = archive_folder / "LinkedIn"
+            linkedin_folder.mkdir(exist_ok=True)
+            
+            self.export_log.insert(tk.END, "💼 Exporting LinkedIn package...\n")
+            self.export_log.see(tk.END)
+            self.root.update_idletasks()
+            
+            try:
+                from linkedin_generator import LinkedInGenerator, LinkedInConfig, LinkedInExporter
+                
+                linkedin_config = LinkedInConfig()
+                linkedin_config.tone = self.linkedin_tone_var.get()
+                linkedin_config.content_length = self.linkedin_length_var.get()
+                linkedin_config.target_role = self.linkedin_target_role_var.get() or None
+                
+                additional_info = {
+                    'name': self.current_user_data.name,
+                    'email': self.current_user_data.email,
+                    'location': self.current_user_data.location,
+                    'website': self.current_user_data.website
+                }
+                
+                linkedin_generator = LinkedInGenerator(linkedin_config)
+                linkedin_data = linkedin_generator.generate_linkedin_profile(
+                    self.current_user_data.profile_data, additional_info
+                )
+                
+                linkedin_exporter = LinkedInExporter(linkedin_data)
+                
+                # Export files
+                text_file = linkedin_folder / "LinkedIn_Profile.txt"
+                linkedin_exporter.export_to_text(str(text_file))
+                total_files += 1
+                
+                html_file = linkedin_folder / "LinkedIn_Profile.html"
+                linkedin_exporter.export_to_html(str(html_file))
+                total_files += 1
+                
+            except Exception as e:
+                self.export_log.insert(tk.END, f"⚠️  LinkedIn export failed: {str(e)}\n")
+            
+            # 4. Export user data summary
+            summary_file = archive_folder / "Profile_Summary.txt"
+            with open(summary_file, 'w', encoding='utf-8') as f:
+                f.write(f"""GitHub Profile Archive - {self.current_user_data.username}
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+USER INFORMATION:
+Name: {self.current_user_data.name or 'Not specified'}
+Location: {self.current_user_data.location or 'Not specified'}
+Email: {self.current_user_data.email or 'Not specified'}
+Website: {self.current_user_data.website or 'Not specified'}
+Bio: {self.current_user_data.bio or 'No bio available'}
+
+STATISTICS:
+Public Repositories: {self.current_user_data.public_repos}
+Total Stars Received: {self.current_user_data.total_stars}
+Followers: {self.current_user_data.followers}
+Following: {self.current_user_data.following}
+Account Created: {self.current_user_data.created_at[:10]}
+
+ARCHIVE CONTENTS:
+- READMEs/ : README files for all repositories
+- CVs/ : Professional CVs in multiple styles
+- LinkedIn/ : LinkedIn optimization content
+- Profile_Summary.txt : This summary file
+
+Total Files: {total_files + 1}
+""")
+            total_files += 1
+            
+            self.export_log.insert(tk.END, f"✅ Archive complete! Total files: {total_files}\n")
+            self.export_log.see(tk.END)
+            
+            messagebox.showinfo("Full Archive Export Complete", 
+                               f"Complete professional archive exported!\n\n"
+                               f"📁 Location: {archive_folder}\n"
+                               f"📊 Total Files: {total_files}\n\n"
+                               f"Contents:\n"
+                               f"• README files for all repositories\n"
+                               f"• CV package (5 styles, HTML/PDF)\n"
+                               f"• LinkedIn optimization content\n"
+                               f"• Profile summary and statistics")
+            
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to export full archive:\n{str(e)}")
     
     def load_settings(self):
         """Load application settings."""
