@@ -410,6 +410,10 @@ class UnifiedRepoReadmeGUI:
         ttk.Label(target_row, text="Target Role:").pack(side='left')
         self.linkedin_target_role_var = tk.StringVar()
         target_entry = ttk.Entry(target_row, textvariable=self.linkedin_target_role_var, width=25)
+        
+        # Initialize portfolio variables
+        self.portfolio_style_var = tk.StringVar(value="modern")
+        self.portfolio_dark_mode_var = tk.BooleanVar(value=False)
         target_entry.pack(side='left', padx=10)
         
         # Generate LinkedIn content button
@@ -747,18 +751,15 @@ URLs:
                 description=selected_repo.description or "",
                 primary_language=selected_repo.language or "",
                 languages=selected_repo.languages or {},
-                topics=selected_repo.topics,
-                has_readme=selected_repo.has_readme,
-                has_license=selected_repo.has_license,
-                has_dockerfile=selected_repo.has_dockerfile,
+                topics=selected_repo.topics or [],
+                has_docker=selected_repo.has_dockerfile,
                 has_ci=selected_repo.has_ci,
                 has_tests=selected_repo.has_tests,
                 repository_url=selected_repo.url,
-                clone_url=selected_repo.clone_url,
-                stars=selected_repo.stars,
-                forks=selected_repo.forks,
-                created_at=selected_repo.created_at,
-                updated_at=selected_repo.updated_at
+                stars_count=selected_repo.stars,
+                forks_count=selected_repo.forks,
+                created_date=selected_repo.created_at,
+                last_updated=selected_repo.updated_at
             )
             
             # Add user context
@@ -1077,7 +1078,7 @@ PROFESSIONAL HEADLINE:
 {linkedin.headline}
 
 ABOUT/SUMMARY:
-{linkedin.about_section}
+{linkedin.summary}
 
 SKILLS & EXPERTISE:
 """
