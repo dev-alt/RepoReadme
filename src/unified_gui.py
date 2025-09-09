@@ -208,7 +208,15 @@ class UnifiedRepoReadmeGUI:
         progress_label.pack(anchor='w', padx=10, pady=(10, 5))
         
         self.progress_bar = ttk.Progressbar(progress_frame, mode='determinate')
-        self.progress_bar.pack(fill='x', padx=10, pady=(0, 10))
+        self.progress_bar.pack(fill='x', padx=10, pady=(0, 5))
+        
+        # Detailed progress log
+        progress_log_frame = ttk.Frame(progress_frame)
+        progress_log_frame.pack(fill='both', expand=True, padx=10, pady=(5, 10))
+        
+        self.progress_log = scrolledtext.ScrolledText(progress_log_frame, height=8, width=70,
+                                                     font=('Consolas', 9), state='disabled')
+        self.progress_log.pack(fill='both', expand=True)
     
     def create_scan_tab(self):
         """Create the repository scanning and analysis tab."""
@@ -532,6 +540,9 @@ class UnifiedRepoReadmeGUI:
             self.connection_indicator.configure(foreground='green')
             messagebox.showinfo("Connection Success", f"Successfully connected to GitHub for user: {username}")
             
+            # Auto-save connection details
+            self.save_settings()
+            
         except Exception as e:
             self.connection_status_var.set("❌ Connection failed")
             self.connection_indicator.configure(foreground='red')
@@ -546,6 +557,27 @@ class UnifiedRepoReadmeGUI:
         
         if self.is_fetching_data:
             return
+        
+        # Check for cached data first
+        cached_data = self.github_manager.get_cached_user_data(username)
+        if cached_data:
+            response = messagebox.askyesnocancel(
+                "Cached Data Found", 
+                f"Found cached data for {username} from {cached_data.updated_at[:10]}.\n\n"
+                f"• Repositories: {len(cached_data.repositories)}\n"
+                f"• Profile: {cached_data.name or 'Available'}\n\n"
+                f"Use cached data (Yes) or refresh from GitHub (No)?"
+            )
+            
+            if response is True:  # Use cached data
+                self.current_user_data = cached_data
+                self._update_scan_tab()
+                self.status_var.set("✅ Loaded cached GitHub data")
+                messagebox.showinfo("Cache Loaded", "Using cached data. Switch to the Analyze tab to view.")
+                return
+            elif response is None:  # Cancel
+                return
+            # If response is False, continue with fresh fetch
         
         # Disable fetch button
         self.fetch_button.configure(state='disabled', text="🔄 Fetching...")
@@ -623,6 +655,14 @@ class UnifiedRepoReadmeGUI:
         """Update progress display."""
         self.progress_var.set(message)
         self.progress_bar['value'] = progress
+        
+        # Add to detailed progress log
+        self.progress_log.config(state='normal')
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        self.progress_log.insert(tk.END, f"[{timestamp}] {message}\n")
+        self.progress_log.see(tk.END)
+        self.progress_log.config(state='disabled')
+        
         self.root.update_idletasks()
     
     def _update_scan_tab(self):
@@ -1083,8 +1123,8 @@ ABOUT/SUMMARY:
 SKILLS & EXPERTISE:
 """
         
-        if linkedin.skills:
-            for category, skills in linkedin.skills.items():
+        if linkedin.skill_categories:
+            for category, skills in linkedin.skill_categories.items():
                 preview += f"{category.title()}:\n  {', '.join(skills[:10])}\n"
         
         if linkedin.featured_content:
@@ -1200,14 +1240,14 @@ This will be converted to a full HTML portfolio in the next update.
 """
             portfolio_html = portfolio_preview
             
-            # Display preview
-            self.portfolio_preview.delete('1.0', tk.END)
-            self.portfolio_preview.insert('1.0', f"Portfolio generated successfully!\n\n"
-                                                 f"Style: {config.template_style}\n"
-                                                 f"Dark Mode: {'Yes' if config.dark_mode else 'No'}\n"
-                                                 f"Repositories: {len(self.current_user_data.repositories)}\n"
-                                                 f"Content Length: {len(portfolio_html)} characters\n\n"
-                                                 f"Ready for export and preview!")
+            # Show success message
+            messagebox.showinfo("Portfolio Generated", 
+                               f"Portfolio generated successfully!\n\n"
+                               f"Style: {self.portfolio_style_var.get()}\n"
+                               f"Dark Mode: {'Yes' if self.portfolio_dark_mode_var.get() else 'No'}\n"
+                               f"Repositories: {len(self.current_user_data.repositories)}\n"
+                               f"Content Length: {len(portfolio_html)} characters\n\n"
+                               f"Ready for export!")
             
             # Store for export
             self.current_portfolio_html = portfolio_html
@@ -1238,11 +1278,22 @@ This will be converted to a full HTML portfolio in the next update.
     def load_settings(self):
         """Load application settings."""
         try:
-            settings = self.settings_manager.get_all_settings()
-            if 'github_username' in settings:
-                self.username_var.set(settings['github_username'])
-            if 'github_token' in settings:
-                self.token_var.set(settings['github_token'])
+            # Load individual settings
+            username = self.settings_manager.get_setting('github_username', '')
+            token = self.settings_manager.get_setting('github_token', '')
+            cv_style = self.settings_manager.get_setting('cv_style', 'modern')
+            linkedin_tone = self.settings_manager.get_setting('linkedin_tone', 'professional')
+            
+            if username:
+                self.username_var.set(username)
+            if token:
+                self.token_var.set(token)
+            if hasattr(self, 'cv_style_var'):
+                self.cv_style_var.set(cv_style)
+            if hasattr(self, 'linkedin_tone_var'):
+                self.linkedin_tone_var.set(linkedin_tone)
+                
+            self.logger.info("Settings loaded successfully")
         except Exception as e:
             self.logger.warning(f"Failed to load settings: {e}")
     
