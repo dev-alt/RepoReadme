@@ -70,6 +70,11 @@ class AIBioConfig:
     personal_brand_adjectives: List[str] = None  # ["innovative", "eager", "collaborative"]
     value_proposition: str = ""  # What unique value do you bring?
     
+    # README and Website Integration (NEW)
+    selected_readmes: List[str] = None  # List of repository names to analyze README files
+    portfolio_website: str = ""  # Portfolio website URL
+    professional_website: str = ""  # Professional/company website URL
+    
     def __post_init__(self):
         if self.focus_areas is None:
             # Different focus areas based on experience level
@@ -98,6 +103,15 @@ class AIBioConfig:
         if self.frameworks_libraries is None:
             self.frameworks_libraries = []
         if self.tools_platforms is None:
+            self.tools_platforms = []
+        if self.databases is None:
+            self.databases = []
+        if self.specializations is None:
+            self.specializations = []
+        
+        # Initialize README and website fields (NEW)
+        if self.selected_readmes is None:
+            self.selected_readmes = []
             self.tools_platforms = []
         if self.databases is None:
             self.databases = []

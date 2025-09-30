@@ -695,6 +695,68 @@ class UnifiedRepoReadmeGUI:
         ttk.Checkbutton(advanced_frame, text="Show learning mindset (important for recent graduates)", 
                        variable=self.ai_show_learning_mindset).pack(anchor='w')
         
+        # README Selection Frame (NEW)
+        readme_frame = ttk.LabelFrame(ai_bio_frame, text="📄 README Files (Enhance Bio Context)", padding=15)
+        readme_frame.pack(fill='x', padx=20, pady=(0, 10))
+        
+        # README selection explanation
+        ttk.Label(readme_frame, text="Select README files to analyze for project descriptions and achievements:", 
+                 font=('Segoe UI', 9)).pack(anchor='w', pady=(0, 5))
+        
+        # README list with checkboxes
+        readme_list_frame = ttk.Frame(readme_frame)
+        readme_list_frame.pack(fill='both', expand=True, pady=(0, 10))
+        
+        # Scrollable frame for README checkboxes
+        self.readme_canvas = tk.Canvas(readme_list_frame, height=100)
+        readme_scrollbar = ttk.Scrollbar(readme_list_frame, orient="vertical", command=self.readme_canvas.yview)
+        self.readme_scrollable_frame = ttk.Frame(self.readme_canvas)
+        
+        self.readme_scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.readme_canvas.configure(scrollregion=self.readme_canvas.bbox("all"))
+        )
+        
+        self.readme_canvas.create_window((0, 0), window=self.readme_scrollable_frame, anchor="nw")
+        self.readme_canvas.configure(yscrollcommand=readme_scrollbar.set)
+        
+        self.readme_canvas.pack(side="left", fill="both", expand=True)
+        readme_scrollbar.pack(side="right", fill="y")
+        
+        # Store README checkboxes
+        self.readme_checkboxes = {}
+        
+        # README controls
+        readme_controls = ttk.Frame(readme_frame)
+        readme_controls.pack(fill='x', pady=(5, 0))
+        
+        ttk.Button(readme_controls, text="Select All", command=self.select_all_readmes).pack(side='left', padx=(0, 5))
+        ttk.Button(readme_controls, text="Clear All", command=self.clear_all_readmes).pack(side='left', padx=5)
+        ttk.Button(readme_controls, text="Refresh List", command=self.refresh_readme_list).pack(side='left', padx=5)
+        
+        # Website Links Frame (NEW)
+        websites_frame = ttk.LabelFrame(ai_bio_frame, text="🌐 Website Links (Professional Presence)", padding=15)
+        websites_frame.pack(fill='x', padx=20, pady=(0, 10))
+        
+        # Website inputs
+        website_grid = ttk.Frame(websites_frame)
+        website_grid.pack(fill='x')
+        
+        # Portfolio website
+        ttk.Label(website_grid, text="Portfolio Website:", font=('Segoe UI', 9, 'bold')).grid(row=0, column=0, sticky='w', padx=(0, 10), pady=(5, 2))
+        self.portfolio_url = ttk.Entry(website_grid, width=50)
+        self.portfolio_url.grid(row=0, column=1, sticky='ew', padx=(0, 10), pady=(5, 2))
+        ttk.Label(website_grid, text="(e.g., https://yourname.dev)", font=('Segoe UI', 8), foreground='gray').grid(row=0, column=2, sticky='w', pady=(5, 2))
+        
+        # Professional website/company
+        ttk.Label(website_grid, text="Professional Website:", font=('Segoe UI', 9, 'bold')).grid(row=1, column=0, sticky='w', padx=(0, 10), pady=(5, 2))
+        self.professional_url = ttk.Entry(website_grid, width=50)
+        self.professional_url.grid(row=1, column=1, sticky='ew', padx=(0, 10), pady=(5, 2))
+        ttk.Label(website_grid, text="(e.g., company website, personal brand)", font=('Segoe UI', 8), foreground='gray').grid(row=1, column=2, sticky='w', pady=(5, 2))
+        
+        # Configure grid weights
+        website_grid.columnconfigure(1, weight=1)
+        
         # OpenRouter AI Enhancement
         openrouter_frame = ttk.LabelFrame(ai_bio_frame, text="🤖 OpenRouter AI Enhancement", padding=15)
         openrouter_frame.pack(fill='x', padx=20, pady=(0, 10))
@@ -1080,6 +1142,10 @@ class UnifiedRepoReadmeGUI:
         
         # Update README combo
         self._update_readme_combo()
+        
+        # Refresh README selection list for AI Bio tab
+        if hasattr(self, 'refresh_readme_list'):
+            self.refresh_readme_list()
         
         # Switch to scan tab
         self.notebook.select(1)
@@ -1894,6 +1960,30 @@ SKILLS & EXPERTISE:
             config.programming_languages = [lang.strip() for lang in self.ai_programming_languages.get('1.0', tk.END).strip().split(',') if lang.strip()]
             config.frameworks_libraries = [fw.strip() for fw in self.ai_frameworks_libraries.get('1.0', tk.END).strip().split(',') if fw.strip()]
             config.tools_platforms = [tool.strip() for tool in self.ai_tools_platforms.get('1.0', tk.END).strip().split(',') if tool.strip()]
+            
+            # Get selected README files and website links (NEW)
+            selected_readmes = self.get_selected_readmes()
+            portfolio_url = self.portfolio_url.get().strip()
+            professional_url = self.professional_url.get().strip()
+            
+            # Add to config if available
+            if hasattr(config, 'selected_readmes'):
+                config.selected_readmes = selected_readmes
+            else:
+                config.selected_readmes = selected_readmes
+            
+            if hasattr(config, 'portfolio_website'):
+                config.portfolio_website = portfolio_url
+            else:
+                config.portfolio_website = portfolio_url
+                
+            if hasattr(config, 'professional_website'):
+                config.professional_website = professional_url
+            else:
+                config.professional_website = professional_url
+            
+            self.logger.info(f"AI Bio Config: {config.experience_level}, {len(config.programming_languages)} languages, {len(selected_readmes)} READMEs")
+            self.logger.info(f"Websites: Portfolio={bool(portfolio_url)}, Professional={bool(professional_url)}")
             
             # Initialize AI bio generator
             ai_bio_generator = AILinkedInBioGenerator(config)
@@ -3588,6 +3678,104 @@ Total Files: {total_files + 1}
         self.ai_programming_languages.delete('1.0', tk.END)
         self.ai_frameworks_libraries.delete('1.0', tk.END)
         self.ai_tools_platforms.delete('1.0', tk.END)
+    
+    def refresh_readme_list(self):
+        """Refresh the list of available README files from repositories."""
+        # Clear existing checkboxes
+        for widget in self.readme_scrollable_frame.winfo_children():
+            widget.destroy()
+        self.readme_checkboxes.clear()
+        
+        if not self.current_user_data or not self.current_user_data.repositories:
+            ttk.Label(self.readme_scrollable_frame, text="No repositories loaded. Please fetch GitHub data first.", 
+                     foreground='gray').pack(pady=10)
+            return
+        
+        # Add checkboxes for each repository with README
+        row = 0
+        for repo in self.current_user_data.repositories:
+            if not repo.is_fork:  # Only show original repositories
+                var = tk.BooleanVar(value=True)  # Default to selected
+                self.readme_checkboxes[repo.name] = var
+                
+                checkbox = ttk.Checkbutton(
+                    self.readme_scrollable_frame,
+                    text=f"{repo.name} ({repo.language or 'Unknown'}) - {repo.stars} ⭐",
+                    variable=var
+                )
+                checkbox.grid(row=row, column=0, sticky='w', padx=5, pady=2)
+                row += 1
+        
+        if row == 0:
+            ttk.Label(self.readme_scrollable_frame, text="No original repositories found.", 
+                     foreground='gray').pack(pady=10)
+    
+    def select_all_readmes(self):
+        """Select all README checkboxes."""
+        for var in self.readme_checkboxes.values():
+            var.set(True)
+    
+    def clear_all_readmes(self):
+        """Clear all README checkboxes."""
+        for var in self.readme_checkboxes.values():
+            var.set(False)
+    
+    def get_selected_readmes(self):
+        """Get list of selected repository names for README analysis."""
+        selected = []
+        for repo_name, var in self.readme_checkboxes.items():
+            if var.get():
+                selected.append(repo_name)
+        return selected
+    
+    def refresh_readme_list(self):
+        """Refresh the list of available README files from repositories."""
+        # Clear existing checkboxes
+        for widget in self.readme_scrollable_frame.winfo_children():
+            widget.destroy()
+        self.readme_checkboxes.clear()
+        
+        if not self.current_user_data or not self.current_user_data.repositories:
+            ttk.Label(self.readme_scrollable_frame, text="No repositories loaded. Please fetch GitHub data first.", 
+                     foreground='gray').pack(pady=10)
+            return
+        
+        # Add checkboxes for each repository with README
+        row = 0
+        for repo in self.current_user_data.repositories:
+            if not repo.is_fork:  # Only show original repositories
+                var = tk.BooleanVar(value=True)  # Default to selected
+                self.readme_checkboxes[repo.name] = var
+                
+                checkbox = ttk.Checkbutton(
+                    self.readme_scrollable_frame,
+                    text=f"{repo.name} ({repo.language or 'Unknown'}) - {repo.stars} ⭐",
+                    variable=var
+                )
+                checkbox.grid(row=row, column=0, sticky='w', padx=5, pady=2)
+                row += 1
+        
+        if row == 0:
+            ttk.Label(self.readme_scrollable_frame, text="No original repositories found.", 
+                     foreground='gray').pack(pady=10)
+    
+    def select_all_readmes(self):
+        """Select all README checkboxes."""
+        for var in self.readme_checkboxes.values():
+            var.set(True)
+    
+    def clear_all_readmes(self):
+        """Clear all README checkboxes."""
+        for var in self.readme_checkboxes.values():
+            var.set(False)
+    
+    def get_selected_readmes(self):
+        """Get list of selected repository names for README analysis."""
+        selected = []
+        for repo_name, var in self.readme_checkboxes.items():
+            if var.get():
+                selected.append(repo_name)
+        return selected
     
     def run(self):
         """Start the GUI application."""
