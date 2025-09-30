@@ -14,8 +14,11 @@ import keyring
 
 try:
     from github import Github
-except ImportError:
+    GITHUB_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: PyGithub not available in auth module: {e}")
     Github = None
+    GITHUB_AVAILABLE = False
 
 
 class GitHubAuthManager:

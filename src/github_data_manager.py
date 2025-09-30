@@ -22,11 +22,14 @@ try:
     from github import Github, GithubException
     from github.Repository import Repository
     from github.ContentFile import ContentFile
-except ImportError:
+    GITHUB_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: PyGithub not available: {e}")
     Github = None
     Repository = None
     GithubException = Exception
     ContentFile = None
+    GITHUB_AVAILABLE = False
 
 try:
     from .utils.logger import get_logger
@@ -130,11 +133,13 @@ class GitHubDataManager:
     def set_github_token(self, token: str):
         """Set GitHub authentication token."""
         try:
-            if Github is None:
+            if not GITHUB_AVAILABLE or Github is None:
                 raise RuntimeError("PyGithub not available")
-                
-            self.github_client = Github(token) if token else Github()
-            self.current_token = token
+            
+            # Strip whitespace from token to prevent header issues
+            clean_token = token.strip() if token else ""
+            self.github_client = Github(clean_token) if clean_token else Github()
+            self.current_token = clean_token
             
             # Test the connection
             user = self.github_client.get_user()
@@ -147,7 +152,7 @@ class GitHubDataManager:
     def set_username_only(self, username: str):
         """Set up for public-only access with username."""
         try:
-            if Github is None:
+            if not GITHUB_AVAILABLE or Github is None:
                 raise RuntimeError("PyGithub not available")
                 
             self.github_client = Github()
@@ -177,9 +182,22 @@ class GitHubDataManager:
         self._update_progress("🔍 Fetching user information...", 5)
         
         try:
+            # Validate username before making API call
+            if not username or not username.strip():
+                raise ValueError("Username cannot be empty")
+            
+            username = username.strip()
+            self.logger.info(f"Fetching GitHub user: '{username}'")
+            
             user = self.github_client.get_user(username)
             
-            # Get basic user info
+            # Get basic user info (with safe attribute access)
+            try:
+                private_repos = user.total_private_repos if hasattr(user, 'total_private_repos') else 0
+            except Exception:
+                # If we can't access private repo count (common with public tokens), default to 0
+                private_repos = 0
+            
             user_data = GitHubUserData(
                 username=user.login,
                 name=user.name,
@@ -189,7 +207,7 @@ class GitHubDataManager:
                 website=user.blog,
                 avatar_url=user.avatar_url,
                 public_repos=user.public_repos,
-                private_repos=user.total_private_repos if hasattr(user, 'total_private_repos') else 0,
+                private_repos=private_repos,
                 followers=user.followers,
                 following=user.following,
                 created_at=user.created_at.isoformat(),
@@ -236,8 +254,18 @@ class GitHubDataManager:
             return user_data
             
         except Exception as e:
+            error_msg = str(e)
             self.logger.error(f"Failed to fetch user data: {e}")
-            self._update_progress(f"❌ Error: {str(e)}", 0)
+            
+            # Provide more helpful error messages for common issues
+            if "404" in error_msg:
+                if "Not Found" in error_msg:
+                    helpful_msg = f"GitHub user '{username}' not found. Please check the username is correct."
+                else:
+                    helpful_msg = f"GitHub API returned 404. User '{username}' may not exist or be private."
+                self._update_progress(f"❌ Error: {helpful_msg}", 0)
+            else:
+                self._update_progress(f"❌ Error: {error_msg}", 0)
             raise
     
     async def _fetch_repositories(self, user, scope: str) -> List[Repository]:

@@ -15,11 +15,18 @@ src_dir = Path(__file__).parent / 'src'
 sys.path.insert(0, str(src_dir))
 
 try:
-    from src.unified_gui import UnifiedRepoReadmeGUI
-    from src.utils.logger import get_logger
-except ImportError:
     from unified_gui import UnifiedRepoReadmeGUI
     from utils.logger import get_logger
+except ImportError as e:
+    print(f"Import error: {e}")
+    print("Trying alternative import...")
+    try:
+        from src.unified_gui import UnifiedRepoReadmeGUI
+        from src.utils.logger import get_logger
+    except ImportError as e2:
+        print(f"Alternative import also failed: {e2}")
+        print("Please ensure all dependencies are installed: pip install -r requirements.txt")
+        sys.exit(1)
 
 
 def main():

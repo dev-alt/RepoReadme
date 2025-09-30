@@ -1,0 +1,65 @@
+{
+  "id": "",
+  "title": "",
+  "slug": "",
+  "summary": "",
+  "description": "",
+  "category": "API",
+  "status": "In Development",
+  "dateCreated": "",
+  "dateUpdated": "",
+  "technologies": [
+    { "name": "Node.js", "icon": "logos:nodejs-icon", "category": "API" },
+    { "name": "Express", "icon": "logos:express", "category": "Framework" },
+    { "name": "TypeScript", "icon": "logos:typescript-icon", "category": "Language" },
+    { "name": "PostgreSQL", "icon": "logos:postgresql", "category": "Database" }
+  ],
+  "architecture": "RESTful API with MVC pattern",
+  "technicalDetails": [
+    {
+      "title": "API Routes",
+      "description": "RESTful endpoint structure and middleware",
+      "codeSnippet": ""
+    },
+    {
+      "title": "Database Integration",
+      "description": "Database models and query optimization",
+      "codeSnippet": ""
+    },
+    {
+      "title": "Authentication",
+      "description": "JWT-based authentication system",
+      "codeSnippet": ""
+    }
+  ],
+  "images": [
+    {
+      "url": "/Projects/API_NAME_Documentation.png",
+      "alt": "API_NAME Documentation",
+      "width": 1920,
+      "height": 1080,
+      "isFeatured": true
+    }
+  ],
+  "links": [
+    {
+      "type": "github",
+      "url": "https://github.com/dev-alt/API_REPO",
+      "label": "Source Code"
+    },
+    {
+      "type": "documentation",
+      "url": "https://api.dev-alt.tech/docs",
+      "label": "API Documentation"
+    }
+  ],
+  "keyPoints": [
+    "RESTful API design",
+    "TypeScript for type safety",
+    "Database integration with ORM",
+    "JWT authentication",
+    "API documentation",
+    "Error handling and validation",
+    "Rate limiting and security"
+  ]
+}

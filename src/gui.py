@@ -41,6 +41,7 @@ try:
     from .profile_builder_dialog import create_profile_builder
     from .cv_generator_dialog import create_cv_generator
     from .linkedin_generator_dialog import create_linkedin_generator
+    from .readme_to_template_converter import ReadmeToTemplateConverter
     from github import Github
 except ImportError:
     from analyzers.repository_analyzer import RepositoryAnalyzer, ProjectMetadata  
@@ -53,6 +54,7 @@ except ImportError:
         from profile_builder_dialog import create_profile_builder
         from cv_generator_dialog import create_cv_generator
         from linkedin_generator_dialog import create_linkedin_generator
+        from readme_to_template_converter import ReadmeToTemplateConverter
     except ImportError:
         # Fallback functions if features fail to import
         def create_custom_template_builder(parent):
@@ -79,6 +81,15 @@ except ImportError:
             from tkinter import messagebox
             messagebox.showerror("Feature Unavailable", "LinkedIn Generator is not available in this session.")
             return None
+        
+        # Create fallback for ReadmeToTemplateConverter
+        class ReadmeToTemplateConverter:
+            def __init__(self):
+                pass
+            def convert_and_save(self, *args, **kwargs):
+                from tkinter import messagebox
+                messagebox.showerror("Feature Unavailable", "README to Template Converter is not available in this session.")
+                return None, None
     try:
         from github import Github
     except ImportError:
@@ -397,6 +408,8 @@ class RepoReadmeGUI:
                   style='Primary.TButton').pack(side='left', padx=5)
         ttk.Button(action_frame, text="💾 Save README", 
                   command=self.save_readme, style='Action.TButton').pack(side='left', padx=5)
+        ttk.Button(action_frame, text="🎯 Convert to Template", 
+                  command=self.convert_to_project_template, style='Action.TButton').pack(side='left', padx=5)
         ttk.Button(action_frame, text="📤 Commit to Repo", 
                   command=self.commit_readme_to_repo, style='Action.TButton').pack(side='left', padx=5)
         
@@ -1087,6 +1100,173 @@ class RepoReadmeGUI:
             except Exception as e:
                 messagebox.showerror("Save Error", f"Failed to save README: {str(e)}")
                 self.logger.error(f"README save failed: {e}", "SAVE", e)
+    
+    def convert_to_project_template(self):
+        """Convert the current README to a project template JSON file."""
+        if not self.selected_repo:
+            messagebox.showwarning("No Selection", "Please select a repository first.")
+            return
+        
+        # Check if we have repository metadata
+        if not self.selected_repo.metadata:
+            messagebox.showwarning("No Analysis", "Please analyze the repository first.")
+            return
+        
+        # Get README content
+        readme_content = ""
+        if self.selected_repo.generated_readme:
+            readme_content = self.selected_repo.generated_readme
+        else:
+            preview_content = self.preview_text.get('1.0', tk.END).strip()
+            if preview_content and preview_content != "Select a repository and configure template to see preview...":
+                readme_content = preview_content
+            else:
+                messagebox.showwarning("No README", "Generate a README first.")
+                return
+        
+        # Create conversion dialog to get additional info
+        dialog_result = self.show_template_conversion_dialog()
+        if not dialog_result:
+            return
+        
+        try:
+            # Initialize converter
+            converter = ReadmeToTemplateConverter()
+            
+            # Convert README to template
+            template, saved_path = converter.convert_and_save(
+                readme_content=readme_content,
+                metadata=self.selected_repo.metadata,
+                repo_url=dialog_result.get('repo_url'),
+                demo_url=dialog_result.get('demo_url'),
+                output_path=dialog_result.get('output_path')
+            )
+            
+            if template and saved_path:
+                messagebox.showinfo(
+                    "Conversion Successful", 
+                    f"README converted to project template!\n\n"
+                    f"📋 Template: {template.title}\n"
+                    f"📁 Saved to: {saved_path}\n\n"
+                    f"You can now use this template to create portfolio projects."
+                )
+                
+                self.status_var.set(f"README converted to template: {os.path.basename(saved_path)}")
+                self.logger.info(f"README converted to template: {saved_path}")
+            else:
+                messagebox.showerror("Conversion Failed", "Failed to convert README to template.")
+        
+        except Exception as e:
+            messagebox.showerror("Conversion Error", f"Failed to convert README: {str(e)}")
+            self.logger.error(f"Template conversion failed: {e}", "CONVERSION", e)
+    
+    def show_template_conversion_dialog(self):
+        """Show dialog to collect additional information for template conversion."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("🎯 Convert to Project Template")
+        dialog.geometry("500x400")
+        dialog.resizable(True, True)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Center the dialog
+        dialog.geometry("+%d+%d" % (
+            self.root.winfo_rootx() + 50,
+            self.root.winfo_rooty() + 50
+        ))
+        
+        result = {}
+        
+        # Main frame
+        main_frame = ttk.Frame(dialog, padding="20")
+        main_frame.pack(fill='both', expand=True)
+        
+        # Title
+        title_label = ttk.Label(main_frame, text="📋 Project Template Information", 
+                               font=('Arial', 12, 'bold'))
+        title_label.pack(pady=(0, 20))
+        
+        # Description
+        desc_text = ("This will convert your README into a JSON template that can be used "
+                    "in your portfolio projects. Please provide additional information:")
+        ttk.Label(main_frame, text=desc_text, wraplength=450).pack(pady=(0, 15))
+        
+        # Form fields
+        fields_frame = ttk.Frame(main_frame)
+        fields_frame.pack(fill='x', pady=(0, 20))
+        
+        # Repository URL
+        ttk.Label(fields_frame, text="Repository URL (GitHub):").grid(row=0, column=0, sticky='w', pady=5)
+        repo_url_var = tk.StringVar()
+        if self.selected_repo.url:
+            repo_url_var.set(self.selected_repo.url)
+        ttk.Entry(fields_frame, textvariable=repo_url_var, width=50).grid(row=0, column=1, sticky='ew', padx=(10, 0), pady=5)
+        
+        # Demo URL
+        ttk.Label(fields_frame, text="Demo URL (optional):").grid(row=1, column=0, sticky='w', pady=5)
+        demo_url_var = tk.StringVar()
+        ttk.Entry(fields_frame, textvariable=demo_url_var, width=50).grid(row=1, column=1, sticky='ew', padx=(10, 0), pady=5)
+        
+        # Output path
+        ttk.Label(fields_frame, text="Save Location:").grid(row=2, column=0, sticky='w', pady=5)
+        path_frame = ttk.Frame(fields_frame)
+        path_frame.grid(row=2, column=1, sticky='ew', padx=(10, 0), pady=5)
+        
+        output_path_var = tk.StringVar()
+        # Default to project-templates directory
+        default_path = str(Path(__file__).parent.parent / "project-templates" / f"{self.selected_repo.name.lower().replace(' ', '-')}.json")
+        output_path_var.set(default_path)
+        
+        ttk.Entry(path_frame, textvariable=output_path_var, width=35).pack(side='left', fill='x', expand=True)
+        
+        def browse_path():
+            file_path = filedialog.asksaveasfilename(
+                title="Save Template As",
+                defaultextension=".json",
+                filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+                initialfile=f"{self.selected_repo.name.lower().replace(' ', '-')}.json"
+            )
+            if file_path:
+                output_path_var.set(file_path)
+        
+        ttk.Button(path_frame, text="Browse", command=browse_path).pack(side='right', padx=(5, 0))
+        
+        fields_frame.columnconfigure(1, weight=1)
+        path_frame.columnconfigure(0, weight=1)
+        
+        # Preview info
+        preview_frame = ttk.LabelFrame(main_frame, text="Template Preview", padding="10")
+        preview_frame.pack(fill='both', expand=True, pady=(0, 20))
+        
+        preview_info = f"Project: {self.selected_repo.name}\n"
+        if self.selected_repo.metadata:
+            preview_info += f"Language: {self.selected_repo.metadata.primary_language or 'Unknown'}\n"
+            preview_info += f"Frameworks: {', '.join(self.selected_repo.metadata.frameworks) if self.selected_repo.metadata.frameworks else 'None detected'}\n"
+            preview_info += f"Files: {self.selected_repo.metadata.total_files if self.selected_repo.metadata.total_files else 'Unknown'}"
+        
+        ttk.Label(preview_frame, text=preview_info, justify='left').pack(anchor='w')
+        
+        # Button frame
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill='x')
+        
+        def on_convert():
+            result['repo_url'] = repo_url_var.get().strip() or None
+            result['demo_url'] = demo_url_var.get().strip() or None  
+            result['output_path'] = output_path_var.get().strip() or None
+            dialog.destroy()
+        
+        def on_cancel():
+            dialog.destroy()
+        
+        ttk.Button(button_frame, text="Cancel", command=on_cancel).pack(side='left')
+        ttk.Button(button_frame, text="🎯 Convert to Template", 
+                  command=on_convert, style='Primary.TButton').pack(side='right')
+        
+        # Wait for dialog
+        dialog.wait_window()
+        
+        return result if result else None
     
     def commit_readme_to_repo(self):
         """Commit the generated README directly to the repository."""

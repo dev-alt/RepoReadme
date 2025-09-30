@@ -25,6 +25,7 @@ try:
     from .templates.readme_templates import ReadmeTemplateEngine
     from .cv_generator import CVGenerator, CVConfig
     from .linkedin_generator import LinkedInGenerator, LinkedInConfig
+    from .readme_to_template_converter import ReadmeToTemplateConverter
     from .utils.logger import get_logger
     from .config.settings import SettingsManager
 except ImportError:
@@ -33,6 +34,9 @@ except ImportError:
     from templates.readme_templates import ReadmeTemplateEngine
     from cv_generator import CVGenerator, CVConfig
     from linkedin_generator import LinkedInGenerator, LinkedInConfig
+    from ai_linkedin_bio_generator import AILinkedInBioGenerator, AIBioConfig, AIGeneratedBio
+    from openrouter_service import OpenRouterAIService, OpenRouterConfig, EnhancementRequest
+    from readme_to_template_converter import ReadmeToTemplateConverter
     from utils.logger import get_logger
     from config.settings import SettingsManager
 
@@ -52,6 +56,7 @@ class UnifiedRepoReadmeGUI:
         self.github_manager = GitHubDataManager()
         self.analyzer = RepositoryAnalyzer()
         self.template_engine = ReadmeTemplateEngine()
+        self.template_converter = ReadmeToTemplateConverter()
         self.settings_manager = SettingsManager()
         
         # State variables
@@ -102,6 +107,7 @@ class UnifiedRepoReadmeGUI:
         self.create_readme_tab()
         self.create_cv_tab()
         self.create_linkedin_tab()
+        self.create_ai_bio_tab()
         self.create_export_tab()
         
         # Status bar
@@ -141,23 +147,81 @@ class UnifiedRepoReadmeGUI:
         username_frame.pack(fill='x', pady=10)
         
         ttk.Label(username_frame, text="GitHub Username:", font=('Segoe UI', 10, 'bold')).pack(anchor='w')
+        
+        # Username entry with save button
+        username_input_frame = ttk.Frame(username_frame)
+        username_input_frame.pack(fill='x', pady=(5, 0))
+        
         self.username_var = tk.StringVar()
-        username_entry = ttk.Entry(username_frame, textvariable=self.username_var, font=('Segoe UI', 11))
-        username_entry.pack(fill='x', pady=(5, 0))
+        username_entry = ttk.Entry(username_input_frame, textvariable=self.username_var, font=('Segoe UI', 11))
+        username_entry.pack(side='left', fill='x', expand=True, padx=(0, 5))
+        
+        ttk.Button(username_input_frame, text="💾 Save", command=self.save_github_username, 
+                  style='Accent.TButton').pack(side='right')
         
         # Token input (optional)
         token_frame = ttk.Frame(conn_frame)
         token_frame.pack(fill='x', pady=10)
         
         ttk.Label(token_frame, text="GitHub Token (optional - for private repos):", font=('Segoe UI', 10, 'bold')).pack(anchor='w')
+        
+        # Token entry with save button
+        token_input_frame = ttk.Frame(token_frame)
+        token_input_frame.pack(fill='x', pady=(5, 0))
+        
         self.token_var = tk.StringVar()
-        token_entry = ttk.Entry(token_frame, textvariable=self.token_var, show='*', font=('Segoe UI', 11))
-        token_entry.pack(fill='x', pady=(5, 0))
+        token_entry = ttk.Entry(token_input_frame, textvariable=self.token_var, show='*', font=('Segoe UI', 11))
+        token_entry.pack(side='left', fill='x', expand=True, padx=(0, 5))
+        
+        ttk.Button(token_input_frame, text="💾 Save", command=self.save_github_token, 
+                  style='Accent.TButton').pack(side='right')
         
         # Test connection button
         test_button = ttk.Button(conn_frame, text="🔍 Test Connection", 
                                command=self.test_github_connection, style='Action.TButton')
         test_button.pack(pady=10)
+        
+        # Credentials status
+        creds_status_frame = ttk.Frame(conn_frame)
+        creds_status_frame.pack(fill='x', pady=(5, 0))
+        
+        # Create status labels
+        self.username_status_var = tk.StringVar()
+        self.token_status_var = tk.StringVar()
+        
+        status_info_frame = ttk.Frame(creds_status_frame)
+        status_info_frame.pack(fill='x')
+        
+        ttk.Label(status_info_frame, text="💾 Saved Credentials:", font=('Segoe UI', 9, 'bold')).pack(anchor='w')
+        
+        username_status_frame = ttk.Frame(status_info_frame)
+        username_status_frame.pack(fill='x', pady=(2, 0))
+        
+        ttk.Label(username_status_frame, text="Username:", font=('Segoe UI', 8)).pack(side='left')
+        self.username_status_label = ttk.Label(username_status_frame, textvariable=self.username_status_var, 
+                                              font=('Segoe UI', 8))
+        self.username_status_label.pack(side='left', padx=(5, 0))
+        
+        token_status_frame = ttk.Frame(status_info_frame)
+        token_status_frame.pack(fill='x', pady=(1, 0))
+        
+        ttk.Label(token_status_frame, text="Token:", font=('Segoe UI', 8)).pack(side='left')
+        self.token_status_label = ttk.Label(token_status_frame, textvariable=self.token_status_var, 
+                                           font=('Segoe UI', 8))
+        self.token_status_label.pack(side='left', padx=(5, 0))
+        
+        # Quick settings links
+        quick_links_frame = ttk.LabelFrame(connect_frame, text="Quick Settings", padding=15)
+        quick_links_frame.pack(fill='x', padx=20, pady=(10, 0))
+        
+        links_info = ttk.Label(quick_links_frame, text="💡 Need to configure OpenRouter AI for bio enhancement?", 
+                              font=('Segoe UI', 9, 'bold'))
+        links_info.pack(anchor='w')
+        
+        links_desc = ttk.Label(quick_links_frame, 
+                              text="Go to the '💼 LinkedIn' tab → OpenRouter AI settings to save your API key",
+                              font=('Segoe UI', 9), foreground='#7f8c8d')
+        links_desc.pack(anchor='w', pady=(2, 0))
         
         # Data scope selection
         scope_frame = ttk.LabelFrame(connect_frame, text="Data Scope", padding=20)
@@ -328,6 +392,8 @@ class UnifiedRepoReadmeGUI:
                   command=self.save_readme).pack(side='left', padx=5)
         ttk.Button(readme_actions, text="📋 Copy to Clipboard", 
                   command=self.copy_readme).pack(side='left', padx=5)
+        ttk.Button(readme_actions, text="🎯 Convert to Template", 
+                  command=self.convert_to_project_template).pack(side='left', padx=5)
         ttk.Button(readme_actions, text="🔄 Regenerate", 
                   command=self.generate_readme).pack(side='right', padx=5)
     
@@ -474,6 +540,244 @@ class UnifiedRepoReadmeGUI:
         ttk.Button(linkedin_actions, text="📋 Copy Current Tab", 
                   command=self.copy_linkedin_content).pack(side='left', padx=5)
     
+    def create_ai_bio_tab(self):
+        """Create the AI-powered LinkedIn bio generation tab."""
+        ai_bio_frame = ttk.Frame(self.notebook)
+        self.notebook.add(ai_bio_frame, text="🤖 AI Bio")
+        
+        # Header
+        header_frame = ttk.Frame(ai_bio_frame)
+        header_frame.pack(fill='x', padx=20, pady=(20, 10))
+        
+        ttk.Label(header_frame, text="🤖 AI LinkedIn Bio Generator",
+                 style='Header.TLabel').pack(anchor='w')
+        ttk.Label(header_frame, 
+                 text="Generate compelling LinkedIn bios using AI analysis of all your repositories",
+                 font=('Segoe UI', 10)).pack(anchor='w', pady=(5, 0))
+        
+        # Configuration frame
+        config_frame = ttk.LabelFrame(ai_bio_frame, text="AI Bio Configuration", padding=15)
+        config_frame.pack(fill='x', padx=20, pady=(0, 10))
+        
+        # Configuration options
+        config_grid = ttk.Frame(config_frame)
+        config_grid.pack(fill='x')
+        
+        # Bio style
+        ttk.Label(config_grid, text="Bio Style:").grid(row=0, column=0, sticky='w', padx=(0, 10))
+        self.ai_bio_style = ttk.Combobox(config_grid, width=15, state='readonly')
+        self.ai_bio_style['values'] = ('professional', 'creative', 'technical', 'executive', 'startup')
+        self.ai_bio_style.set('professional')
+        self.ai_bio_style.grid(row=0, column=1, sticky='w', padx=(0, 20))
+        
+        # Tone
+        ttk.Label(config_grid, text="Tone:").grid(row=0, column=2, sticky='w', padx=(0, 10))
+        self.ai_bio_tone = ttk.Combobox(config_grid, width=15, state='readonly')
+        self.ai_bio_tone['values'] = ('confident', 'humble', 'enthusiastic', 'analytical', 'visionary')
+        self.ai_bio_tone.set('confident')
+        self.ai_bio_tone.grid(row=0, column=3, sticky='w')
+        
+        # Length
+        ttk.Label(config_grid, text="Length:").grid(row=1, column=0, sticky='w', padx=(0, 10), pady=(10, 0))
+        self.ai_bio_length = ttk.Combobox(config_grid, width=15, state='readonly')
+        self.ai_bio_length['values'] = ('short', 'medium', 'long')
+        self.ai_bio_length.set('medium')
+        self.ai_bio_length.grid(row=1, column=1, sticky='w', padx=(0, 20), pady=(10, 0))
+        
+        # Target role
+        ttk.Label(config_grid, text="Target Role:").grid(row=1, column=2, sticky='w', padx=(0, 10), pady=(10, 0))
+        self.ai_target_role = ttk.Entry(config_grid, width=20)
+        self.ai_target_role.insert(0, "Software Engineer")
+        self.ai_target_role.grid(row=1, column=3, sticky='w', pady=(10, 0))
+        
+        # Experience level (NEW)
+        ttk.Label(config_grid, text="Experience Level:").grid(row=2, column=0, sticky='w', padx=(0, 10), pady=(10, 0))
+        self.ai_experience_level = ttk.Combobox(config_grid, width=15, state='readonly')
+        self.ai_experience_level['values'] = ('recent_graduate', 'junior', 'mid_level', 'senior', 'lead', 'executive')
+        self.ai_experience_level.set('recent_graduate')
+        self.ai_experience_level.grid(row=2, column=1, sticky='w', padx=(0, 20), pady=(10, 0))
+        
+        # Years of experience (NEW)
+        ttk.Label(config_grid, text="Years Experience:").grid(row=2, column=2, sticky='w', padx=(0, 10), pady=(10, 0))
+        self.ai_years_experience = ttk.Spinbox(config_grid, from_=0, to=30, width=10)
+        self.ai_years_experience.set("0")
+        self.ai_years_experience.grid(row=2, column=3, sticky='w', pady=(10, 0))
+        
+        # Advanced options
+        advanced_frame = ttk.LabelFrame(ai_bio_frame, text="Advanced Options", padding=15)
+        advanced_frame.pack(fill='x', padx=20, pady=(0, 10))
+        
+        # Checkboxes for advanced features
+        self.ai_use_metrics = tk.BooleanVar(value=True)
+        self.ai_include_passion = tk.BooleanVar(value=True)
+        self.ai_include_cta = tk.BooleanVar(value=True)
+        self.ai_emphasize_collaboration = tk.BooleanVar(value=True)
+        
+        ttk.Checkbutton(advanced_frame, text="Include quantified metrics", 
+                       variable=self.ai_use_metrics).pack(anchor='w')
+        ttk.Checkbutton(advanced_frame, text="Include passion statement", 
+                       variable=self.ai_include_passion).pack(anchor='w')
+        ttk.Checkbutton(advanced_frame, text="Include call-to-action", 
+                       variable=self.ai_include_cta).pack(anchor='w')
+        ttk.Checkbutton(advanced_frame, text="Emphasize collaboration", 
+                       variable=self.ai_emphasize_collaboration).pack(anchor='w')
+        
+        # Add learning mindset option for recent graduates
+        self.ai_show_learning_mindset = tk.BooleanVar(value=True)
+        ttk.Checkbutton(advanced_frame, text="Show learning mindset (important for recent graduates)", 
+                       variable=self.ai_show_learning_mindset).pack(anchor='w')
+        
+        # OpenRouter AI Enhancement
+        openrouter_frame = ttk.LabelFrame(ai_bio_frame, text="🤖 OpenRouter AI Enhancement", padding=15)
+        openrouter_frame.pack(fill='x', padx=20, pady=(0, 10))
+        
+        # OpenRouter configuration
+        openrouter_config_frame = ttk.Frame(openrouter_frame)
+        openrouter_config_frame.pack(fill='x', pady=(0, 10))
+        
+        # Enable OpenRouter
+        self.openrouter_enabled = tk.BooleanVar(value=False)
+        ttk.Checkbutton(openrouter_config_frame, text="🚀 Enable OpenRouter AI Enhancement", 
+                       variable=self.openrouter_enabled, command=self.toggle_openrouter_config).pack(anchor='w')
+        
+        # OpenRouter settings frame (initially hidden)
+        self.openrouter_settings_frame = ttk.Frame(openrouter_frame)
+        
+        # API Key
+        api_key_frame = ttk.Frame(self.openrouter_settings_frame)
+        api_key_frame.pack(fill='x', pady=(10, 5))
+        
+        ttk.Label(api_key_frame, text="API Key:").pack(side='left')
+        self.openrouter_api_key = ttk.Entry(api_key_frame, width=40, show="*")
+        self.openrouter_api_key.pack(side='left', padx=(10, 5))
+        
+        ttk.Button(api_key_frame, text="💾 Save", command=self.save_openrouter_key, 
+                  style='Action.TButton').pack(side='left', padx=(5, 0))
+        ttk.Button(api_key_frame, text="🧪 Test", command=self.test_openrouter_connection, 
+                  style='Action.TButton').pack(side='left', padx=(5, 0))
+        
+        # Model selection
+        model_frame = ttk.Frame(self.openrouter_settings_frame)
+        model_frame.pack(fill='x', pady=5)
+        
+        ttk.Label(model_frame, text="Model:").pack(side='left')
+        self.openrouter_model = ttk.Combobox(model_frame, width=30, state='readonly')
+        self.openrouter_model['values'] = (
+            'openai/gpt-3.5-turbo',
+            'openai/gpt-4',
+            'openai/gpt-4-turbo',
+            'anthropic/claude-3-haiku',
+            'anthropic/claude-3-sonnet', 
+            'anthropic/claude-3-opus',
+            'anthropic/claude-sonnet-4.5',
+            'meta-llama/llama-3-8b-instruct',
+            'meta-llama/llama-3-70b-instruct',
+            'deepseek/deepseek-v3.2-exp',
+            'google/gemini-2.5-flash'
+        )
+        self.openrouter_model.set('openai/gpt-3.5-turbo')
+        self.openrouter_model.pack(side='left', padx=(10, 10))
+        self.openrouter_model.bind('<<ComboboxSelected>>', self.update_model_pricing_display)
+        
+        # Model info and pricing button
+        ttk.Button(model_frame, text="💰 Pricing Info", command=self.show_model_pricing, 
+                  style='Action.TButton').pack(side='left', padx=(5, 10))
+        
+        # Cost estimate display
+        self.cost_estimate_label = ttk.Label(model_frame, text="Est: $0.002", foreground='#2c3e50', font=('Segoe UI', 9))
+        self.cost_estimate_label.pack(side='left')
+        
+        ttk.Label(model_frame, text="Temperature:").pack(side='left')
+        self.openrouter_temperature = ttk.Scale(model_frame, from_=0.0, to=1.0, orient='horizontal', length=100)
+        self.openrouter_temperature.set(0.7)
+        self.openrouter_temperature.pack(side='left', padx=(10, 5))
+        
+        self.temperature_label = ttk.Label(model_frame, text="0.7")
+        self.temperature_label.pack(side='left')
+        self.openrouter_temperature.configure(command=self.update_temperature_label)
+        
+        # Enhancement options
+        enhancement_frame = ttk.Frame(self.openrouter_settings_frame)
+        enhancement_frame.pack(fill='x', pady=5)
+        
+        self.openrouter_enhance_creativity = tk.BooleanVar(value=True)
+        self.openrouter_improve_readability = tk.BooleanVar(value=True)
+        self.openrouter_optimize_keywords = tk.BooleanVar(value=True)
+        
+        ttk.Checkbutton(enhancement_frame, text="🎨 Enhance creativity", 
+                       variable=self.openrouter_enhance_creativity).pack(side='left', padx=(0, 10))
+        ttk.Checkbutton(enhancement_frame, text="📖 Improve readability", 
+                       variable=self.openrouter_improve_readability).pack(side='left', padx=(0, 10))
+        ttk.Checkbutton(enhancement_frame, text="🎯 Optimize keywords", 
+                       variable=self.openrouter_optimize_keywords).pack(side='left')
+        
+        # Load OpenRouter settings
+        self.load_openrouter_settings()
+        
+        # Initialize pricing display
+        self.update_model_pricing_display()
+        
+        # Generate button
+        generate_frame = ttk.Frame(ai_bio_frame)
+        generate_frame.pack(fill='x', padx=20, pady=10)
+        
+        self.generate_ai_bio_btn = ttk.Button(generate_frame, text="🚀 Generate AI Bio",
+                                             command=self.generate_ai_bio, style='Primary.TButton')
+        self.generate_ai_bio_btn.pack(side='left', padx=(0, 10))
+        
+        ttk.Button(generate_frame, text="🔄 Regenerate Alternatives",
+                  command=self.regenerate_ai_bio_alternatives, style='Action.TButton').pack(side='left', padx=(0, 10))
+        
+        self.enhance_with_openrouter_btn = ttk.Button(generate_frame, text="✨ Enhance with AI",
+                                                     command=self.enhance_bio_with_openrouter, style='Action.TButton')
+        self.enhance_with_openrouter_btn.pack(side='left')
+        
+        # Results frame
+        results_frame = ttk.LabelFrame(ai_bio_frame, text="Generated AI Bio")
+        results_frame.pack(fill='both', expand=True, padx=20, pady=(0, 20))
+        
+        # Bio notebook for multiple versions
+        self.ai_bio_notebook = ttk.Notebook(results_frame)
+        self.ai_bio_notebook.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        # Primary bio tab
+        primary_frame = ttk.Frame(self.ai_bio_notebook)
+        self.ai_bio_notebook.add(primary_frame, text="🎯 Primary Bio")
+        
+        self.ai_primary_bio_text = scrolledtext.ScrolledText(primary_frame, height=8, wrap=tk.WORD,
+                                                            font=('Segoe UI', 11))
+        self.ai_primary_bio_text.pack(fill='both', expand=True, padx=5, pady=5)
+        
+        # Alternative versions tabs
+        self.ai_alt_bio_frames = []
+        for i in range(3):
+            alt_frame = ttk.Frame(self.ai_bio_notebook)
+            self.ai_bio_notebook.add(alt_frame, text=f"✨ Alternative {i+1}")
+            
+            alt_text = scrolledtext.ScrolledText(alt_frame, height=8, wrap=tk.WORD,
+                                               font=('Segoe UI', 11))
+            alt_text.pack(fill='both', expand=True, padx=5, pady=5)
+            self.ai_alt_bio_frames.append(alt_text)
+        
+        # Analysis tab
+        analysis_frame = ttk.Frame(self.ai_bio_notebook)
+        self.ai_bio_notebook.add(analysis_frame, text="📊 Analysis")
+        
+        self.ai_analysis_text = scrolledtext.ScrolledText(analysis_frame, height=8, wrap=tk.WORD,
+                                                         font=('Consolas', 9))
+        self.ai_analysis_text.pack(fill='both', expand=True, padx=5, pady=5)
+        
+        # Bio actions
+        ai_bio_actions = ttk.Frame(ai_bio_frame)
+        ai_bio_actions.pack(fill='x', padx=20, pady=(0, 20))
+        
+        ttk.Button(ai_bio_actions, text="📋 Copy Primary Bio", 
+                  command=self.copy_ai_primary_bio).pack(side='left', padx=5)
+        ttk.Button(ai_bio_actions, text="💾 Save All Versions", 
+                  command=self.save_ai_bio_versions).pack(side='left', padx=5)
+        ttk.Button(ai_bio_actions, text="📧 Export LinkedIn Guide", 
+                  command=self.export_ai_bio_guide).pack(side='left', padx=5)
+    
     def create_export_tab(self):
         """Create the export and portfolio tab."""
         export_frame = ttk.Frame(self.notebook)
@@ -557,6 +861,9 @@ class UnifiedRepoReadmeGUI:
             
             # Auto-save connection details
             self.save_settings()
+            
+            # Update credentials status display
+            self.update_credentials_status()
             
         except Exception as e:
             self.connection_status_var.set("❌ Connection failed")
@@ -687,7 +994,8 @@ class UnifiedRepoReadmeGUI:
             self.root.after(0, lambda: self._fetch_completed(user_data))
             
         except Exception as e:
-            self.root.after(0, lambda: self._fetch_failed(str(e)))
+            error_message = str(e)
+            self.root.after(0, lambda: self._fetch_failed(error_message))
     
     def _fetch_completed(self, user_data: GitHubUserData):
         """Handle successful data fetch."""
@@ -940,6 +1248,179 @@ URLs:
             
         except Exception as e:
             messagebox.showerror("Copy Error", f"Failed to copy README:\n{str(e)}")
+    
+    def convert_to_project_template(self):
+        """Convert the current README to a project template JSON file."""
+        # Check if we have a README to convert
+        readme_content = self.readme_preview.get('1.0', tk.END).strip()
+        if not readme_content:
+            messagebox.showwarning("No Content", "Please generate a README first.")
+            return
+        
+        # Get selected repository
+        selected_repo = self.readme_repo_var.get()
+        if not selected_repo:
+            messagebox.showwarning("No Repository", "Please select a repository first.")
+            return
+        
+        # Find repository data
+        repo_data = None
+        if self.current_user_data and self.current_user_data.repositories:
+            for repo in self.current_user_data.repositories:
+                if f"{repo.name} ({repo.language})" == selected_repo:
+                    repo_data = repo
+                    break
+        
+        if not repo_data:
+            messagebox.showwarning("Repository Not Found", "Could not find repository data.")
+            return
+        
+        # Create conversion dialog to get additional info
+        dialog_result = self.show_template_conversion_dialog(repo_data)
+        if not dialog_result:
+            return
+        
+        try:
+            # Convert repository data to ProjectMetadata format
+            try:
+                from .analyzers.repository_analyzer import ProjectMetadata
+            except ImportError:
+                from analyzers.repository_analyzer import ProjectMetadata
+            metadata = ProjectMetadata()
+            metadata.name = repo_data.name
+            metadata.description = repo_data.description or f"A {repo_data.language} project"
+            metadata.primary_language = repo_data.language
+            metadata.frameworks = []  # Would need to be analyzed from repository
+            metadata.dependencies = []
+            metadata.features = []
+            metadata.total_files = 0  # Would need actual analysis
+            metadata.code_lines = 0
+            
+            # Convert README to template
+            template, saved_path = self.template_converter.convert_and_save(
+                readme_content=readme_content,
+                metadata=metadata,
+                repo_url=repo_data.html_url,
+                demo_url=dialog_result.get('demo_url'),
+                output_path=dialog_result.get('output_path')
+            )
+            
+            if template and saved_path:
+                messagebox.showinfo(
+                    "Conversion Successful", 
+                    f"README converted to project template!\n\n"
+                    f"📋 Template: {template.title}\n"
+                    f"📁 Saved to: {saved_path}\n\n"
+                    f"You can now use this template to create portfolio projects."
+                )
+                
+                self.status_var.set(f"README converted to template: {Path(saved_path).name}")
+                self.logger.info(f"README converted to template: {saved_path}")
+            else:
+                messagebox.showerror("Conversion Failed", "Failed to convert README to template.")
+        
+        except Exception as e:
+            messagebox.showerror("Conversion Error", f"Failed to convert README:\n{str(e)}")
+            self.logger.error(f"Template conversion failed: {e}")
+    
+    def show_template_conversion_dialog(self, repo_data):
+        """Show dialog to collect additional information for template conversion."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("🎯 Convert to Project Template")
+        dialog.geometry("500x350")
+        dialog.resizable(True, True)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Center the dialog
+        dialog.geometry("+%d+%d" % (
+            self.root.winfo_rootx() + 50,
+            self.root.winfo_rooty() + 50
+        ))
+        
+        result = {}
+        
+        # Main frame
+        main_frame = ttk.Frame(dialog, padding="20")
+        main_frame.pack(fill='both', expand=True)
+        
+        # Title
+        title_label = ttk.Label(main_frame, text="📋 Project Template Information", 
+                               style='Header.TLabel')
+        title_label.pack(pady=(0, 20))
+        
+        # Description
+        desc_text = ("This will convert your README into a JSON template that can be used "
+                    "in your portfolio projects. Please provide additional information:")
+        ttk.Label(main_frame, text=desc_text, wraplength=450).pack(pady=(0, 15))
+        
+        # Form fields
+        fields_frame = ttk.Frame(main_frame)
+        fields_frame.pack(fill='x', pady=(0, 20))
+        
+        # Demo URL (Repository URL is already from GitHub)
+        ttk.Label(fields_frame, text="Demo URL (optional):").grid(row=0, column=0, sticky='w', pady=10)
+        demo_url_var = tk.StringVar()
+        ttk.Entry(fields_frame, textvariable=demo_url_var, width=50).grid(row=0, column=1, sticky='ew', padx=(10, 0), pady=10)
+        
+        # Output path
+        ttk.Label(fields_frame, text="Save Location:").grid(row=1, column=0, sticky='w', pady=10)
+        path_frame = ttk.Frame(fields_frame)
+        path_frame.grid(row=1, column=1, sticky='ew', padx=(10, 0), pady=10)
+        
+        output_path_var = tk.StringVar()
+        # Default to project-templates directory
+        default_path = str(Path(__file__).parent.parent / "project-templates" / f"{repo_data.name.lower().replace(' ', '-')}.json")
+        output_path_var.set(default_path)
+        
+        ttk.Entry(path_frame, textvariable=output_path_var, width=35).pack(side='left', fill='x', expand=True)
+        
+        def browse_path():
+            file_path = filedialog.asksaveasfilename(
+                title="Save Template As",
+                defaultextension=".json",
+                filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
+                initialfile=f"{repo_data.name.lower().replace(' ', '-')}.json"
+            )
+            if file_path:
+                output_path_var.set(file_path)
+        
+        ttk.Button(path_frame, text="Browse", command=browse_path).pack(side='right', padx=(5, 0))
+        
+        fields_frame.columnconfigure(1, weight=1)
+        path_frame.columnconfigure(0, weight=1)
+        
+        # Preview info
+        preview_frame = ttk.LabelFrame(main_frame, text="Template Preview", padding="10")
+        preview_frame.pack(fill='both', expand=True, pady=(0, 20))
+        
+        preview_info = f"Project: {repo_data.name}\n"
+        preview_info += f"Language: {repo_data.language or 'Unknown'}\n"
+        preview_info += f"Description: {repo_data.description or 'No description'}\n"
+        preview_info += f"Repository: {repo_data.html_url}"
+        
+        ttk.Label(preview_frame, text=preview_info, justify='left').pack(anchor='w')
+        
+        # Button frame
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill='x')
+        
+        def on_convert():
+            result['demo_url'] = demo_url_var.get().strip() or None  
+            result['output_path'] = output_path_var.get().strip() or None
+            dialog.destroy()
+        
+        def on_cancel():
+            dialog.destroy()
+        
+        ttk.Button(button_frame, text="Cancel", command=on_cancel).pack(side='left')
+        ttk.Button(button_frame, text="🎯 Convert to Template", 
+                  command=on_convert, style='Primary.TButton').pack(side='right')
+        
+        # Wait for dialog
+        dialog.wait_window()
+        
+        return result if result else None
     
     def generate_cv(self):
         """Generate CV from GitHub profile."""
@@ -1278,6 +1759,438 @@ SKILLS & EXPERTISE:
             
         except Exception as e:
             messagebox.showerror("Copy Error", f"Failed to copy LinkedIn content:\n{str(e)}")
+    
+    def generate_ai_bio(self):
+        """Generate AI-powered LinkedIn bio with loading indicator."""
+        if not self.current_user_data or not self.current_user_data.profile_data:
+            messagebox.showwarning("No Profile Data", "Please fetch GitHub data first.")
+            return
+        
+        # Start AI bio generation in a separate thread
+        self._start_ai_bio_generation()
+    
+    def _start_ai_bio_generation(self):
+        """Start AI bio generation in background thread."""
+        import threading
+        
+        # Show loading indicator
+        self.status_var.set("🤖 Generating AI-powered LinkedIn bio...")
+        self.generate_ai_bio_btn.config(state='disabled')
+        
+        # Start progress animation
+        self._start_loading_animation("Generating AI bio")
+        
+        # Run in background thread
+        thread = threading.Thread(target=self._generate_ai_bio_thread, daemon=True)
+        thread.start()
+    
+    def _generate_ai_bio_thread(self):
+        """Background thread for AI bio generation."""
+        try:
+            # Create AI bio configuration
+            config = AIBioConfig(
+                bio_style=self.ai_bio_style.get(),
+                tone=self.ai_bio_tone.get(),
+                length=self.ai_bio_length.get(),
+                target_role=self.ai_target_role.get(),
+                experience_level=self.ai_experience_level.get(),
+                years_experience=int(self.ai_years_experience.get() or 0),
+                use_metrics=self.ai_use_metrics.get(),
+                include_passion_statement=self.ai_include_passion.get(),
+                include_call_to_action=self.ai_include_cta.get(),
+                emphasize_collaboration=self.ai_emphasize_collaboration.get(),
+                show_learning_mindset=self.ai_show_learning_mindset.get()
+            )
+            
+            # Get technology stack from GUI
+            config.programming_languages = [lang.strip() for lang in self.ai_programming_languages.get('1.0', tk.END).strip().split(',') if lang.strip()]
+            config.frameworks_libraries = [fw.strip() for fw in self.ai_frameworks_libraries.get('1.0', tk.END).strip().split(',') if fw.strip()]
+            config.tools_platforms = [tool.strip() for tool in self.ai_tools_platforms.get('1.0', tk.END).strip().split(',') if tool.strip()]
+            
+            # Initialize AI bio generator
+            ai_bio_generator = AILinkedInBioGenerator(config)
+            
+            # Generate bio using GitHub profile data
+            ai_bio_result = ai_bio_generator.generate_ai_bio(self.current_user_data.profile_data, config)
+            
+            # Update UI in main thread
+            self.root.after(0, lambda: self._ai_bio_generation_completed(ai_bio_result))
+            
+        except Exception as e:
+            error_msg = str(e)
+            self.root.after(0, lambda: self._ai_bio_generation_failed(error_msg))
+    
+    def _ai_bio_generation_completed(self, ai_bio_result):
+        """Handle successful AI bio generation."""
+        try:
+            # Stop loading animation
+            self._stop_loading_animation()
+            
+            # Display primary bio
+            self.ai_primary_bio_text.delete('1.0', tk.END)
+            self.ai_primary_bio_text.insert('1.0', ai_bio_result.primary_bio)
+            
+            # Display alternative versions
+            for i, alt_text_widget in enumerate(self.ai_alt_bio_frames):
+                alt_text_widget.delete('1.0', tk.END)
+                if i < len(ai_bio_result.alternative_versions):
+                    alt_text_widget.insert('1.0', ai_bio_result.alternative_versions[i])
+                else:
+                    alt_text_widget.insert('1.0', "Alternative version not available.")
+            
+            # Display analysis
+            analysis_text = self._format_ai_bio_analysis(ai_bio_result)
+            self.ai_analysis_text.delete('1.0', tk.END)
+            self.ai_analysis_text.insert('1.0', analysis_text)
+            
+            # Store result for later use
+            self.current_ai_bio_result = ai_bio_result
+            
+            self.status_var.set("✅ AI bio generation complete!")
+            self.logger.info("AI LinkedIn bio generated successfully")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to display AI bio results: {e}")
+        finally:
+            self.generate_ai_bio_btn.config(state='normal')
+    
+    def _ai_bio_generation_failed(self, error_message):
+        """Handle AI bio generation failure."""
+        self._stop_loading_animation()
+        self.status_var.set("❌ AI bio generation failed")
+        self.generate_ai_bio_btn.config(state='normal')
+        messagebox.showerror("AI Bio Generation Error", f"Failed to generate AI bio:\n{error_message}")
+        self.logger.error(f"AI bio generation failed: {error_message}")
+    
+    def regenerate_ai_bio_alternatives(self):
+        """Regenerate alternative AI bio versions."""
+        if not hasattr(self, 'current_ai_bio_result'):
+            messagebox.showwarning("No Bio Generated", "Please generate an AI bio first.")
+            return
+        
+        try:
+            self.status_var.set("Regenerating alternative bio versions...")
+            
+            # Create new configuration with different styles
+            alternative_styles = ['creative', 'technical', 'professional']
+            alternative_results = []
+            
+            for style in alternative_styles:
+                if style != self.ai_bio_style.get():
+                    config = AIBioConfig(
+                        bio_style=style,
+                        tone=self.ai_bio_tone.get(),
+                        length=self.ai_bio_length.get(),
+                        target_role=self.ai_target_role.get(),
+                        use_metrics=self.ai_use_metrics.get(),
+                        include_passion_statement=self.ai_include_passion.get(),
+                        include_call_to_action=self.ai_include_cta.get(),
+                        emphasize_collaboration=self.ai_emphasize_collaboration.get()
+                    )
+                    
+                    ai_bio_generator = AILinkedInBioGenerator(config)
+                    result = ai_bio_generator.generate_ai_bio(self.current_user_data.profile_data, config)
+                    alternative_results.append(result.primary_bio)
+            
+            # Update alternative version displays
+            for i, alt_text_widget in enumerate(self.ai_alt_bio_frames):
+                alt_text_widget.delete('1.0', tk.END)
+                if i < len(alternative_results):
+                    alt_text_widget.insert('1.0', alternative_results[i])
+                else:
+                    alt_text_widget.insert('1.0', "Alternative version not available.")
+            
+            self.status_var.set("Alternative bio versions regenerated!")
+            
+        except Exception as e:
+            messagebox.showerror("Regeneration Error", f"Failed to regenerate alternatives:\n{str(e)}")
+    
+    def _format_ai_bio_analysis(self, ai_bio_result: AIGeneratedBio) -> str:
+        """Format AI bio analysis for display."""
+        analysis_parts = []
+        
+        analysis_parts.append("🤖 AI BIO ANALYSIS REPORT")
+        analysis_parts.append("=" * 50)
+        analysis_parts.append("")
+        
+        # Bio quality metrics
+        analysis_parts.append("📊 BIO QUALITY METRICS")
+        analysis_parts.append(f"• Readability Score: {ai_bio_result.readability_score:.1f}/100")
+        analysis_parts.append(f"• Engagement Potential: {ai_bio_result.engagement_potential.upper()}")
+        analysis_parts.append(f"• SEO Optimization: {ai_bio_result.search_optimization_score:.1f}/100")
+        analysis_parts.append(f"• Uniqueness Score: {ai_bio_result.uniqueness_score:.1f}/100")
+        analysis_parts.append("")
+        
+        # Keywords analysis
+        if ai_bio_result.primary_keywords_used:
+            analysis_parts.append("🎯 KEYWORDS USED")
+            analysis_parts.append(f"• Primary: {', '.join(ai_bio_result.primary_keywords_used)}")
+        
+        if ai_bio_result.industry_keywords_used:
+            analysis_parts.append(f"• Industry: {', '.join(ai_bio_result.industry_keywords_used)}")
+        analysis_parts.append("")
+        
+        # Authenticity indicators
+        if ai_bio_result.authenticity_indicators:
+            analysis_parts.append("✨ AUTHENTICITY INDICATORS")
+            for indicator in ai_bio_result.authenticity_indicators:
+                analysis_parts.append(f"• {indicator}")
+            analysis_parts.append("")
+        
+        # Bio components breakdown
+        analysis_parts.append("🏗️ BIO COMPONENTS")
+        analysis_parts.append(f"• Opening Hook: {len(ai_bio_result.opening_hook)} chars")
+        analysis_parts.append(f"• Expertise Statement: {len(ai_bio_result.expertise_statement)} chars")
+        analysis_parts.append(f"• Achievement Highlights: {len(ai_bio_result.achievement_highlights)} chars")
+        analysis_parts.append(f"• Value Proposition: {len(ai_bio_result.value_proposition)} chars")
+        
+        if ai_bio_result.passion_statement:
+            analysis_parts.append(f"• Passion Statement: {len(ai_bio_result.passion_statement)} chars")
+        
+        if ai_bio_result.call_to_action:
+            analysis_parts.append(f"• Call to Action: {len(ai_bio_result.call_to_action)} chars")
+        
+        analysis_parts.append("")
+        analysis_parts.append(f"📏 Total Length: {len(ai_bio_result.primary_bio)} characters")
+        analysis_parts.append(f"📝 Word Count: {len(ai_bio_result.primary_bio.split())} words")
+        
+        return "\n".join(analysis_parts)
+    
+    def copy_ai_primary_bio(self):
+        """Copy primary AI bio to clipboard."""
+        content = self.ai_primary_bio_text.get('1.0', tk.END).strip()
+        if not content:
+            messagebox.showwarning("No Bio", "Please generate an AI bio first.")
+            return
+        
+        try:
+            self.root.clipboard_clear()
+            self.root.clipboard_append(content)
+            self.root.update()
+            messagebox.showinfo("Copied", "AI bio copied to clipboard!")
+            
+        except Exception as e:
+            messagebox.showerror("Copy Error", f"Failed to copy AI bio:\n{str(e)}")
+    
+    def save_ai_bio_versions(self):
+        """Save all AI bio versions to files."""
+        if not hasattr(self, 'current_ai_bio_result'):
+            messagebox.showwarning("No Bio Generated", "Please generate an AI bio first.")
+            return
+        
+        try:
+            output_dir = Path("output")
+            output_dir.mkdir(exist_ok=True)
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            username = self.current_user_data.username if self.current_user_data else "user"
+            
+            # Save primary bio
+            primary_file = output_dir / f"AI_LinkedIn_Bio_{username}_{timestamp}.txt"
+            with open(primary_file, 'w', encoding='utf-8') as f:
+                f.write("🤖 AI-Generated LinkedIn Bio (Primary)\n")
+                f.write("=" * 50 + "\n\n")
+                f.write(self.current_ai_bio_result.primary_bio)
+                f.write("\n\n")
+                
+                # Add alternatives
+                f.write("✨ Alternative Versions\n")
+                f.write("=" * 30 + "\n\n")
+                for i, alt in enumerate(self.current_ai_bio_result.alternative_versions, 1):
+                    f.write(f"Alternative {i}:\n")
+                    f.write("-" * 15 + "\n")
+                    f.write(alt + "\n\n")
+                
+                # Add analysis
+                f.write(self._format_ai_bio_analysis(self.current_ai_bio_result))
+            
+            # Save JSON version
+            json_file = output_dir / f"AI_LinkedIn_Bio_{username}_{timestamp}.json"
+            with open(json_file, 'w', encoding='utf-8') as f:
+                bio_dict = {
+                    'primary_bio': self.current_ai_bio_result.primary_bio,
+                    'alternative_versions': self.current_ai_bio_result.alternative_versions,
+                    'bio_components': {
+                        'opening_hook': self.current_ai_bio_result.opening_hook,
+                        'expertise_statement': self.current_ai_bio_result.expertise_statement,
+                        'achievement_highlights': self.current_ai_bio_result.achievement_highlights,
+                        'value_proposition': self.current_ai_bio_result.value_proposition,
+                        'passion_statement': self.current_ai_bio_result.passion_statement,
+                        'call_to_action': self.current_ai_bio_result.call_to_action
+                    },
+                    'analysis': {
+                        'readability_score': self.current_ai_bio_result.readability_score,
+                        'engagement_potential': self.current_ai_bio_result.engagement_potential,
+                        'search_optimization_score': self.current_ai_bio_result.search_optimization_score,
+                        'uniqueness_score': self.current_ai_bio_result.uniqueness_score,
+                        'keywords_used': self.current_ai_bio_result.primary_keywords_used,
+                        'authenticity_indicators': self.current_ai_bio_result.authenticity_indicators
+                    },
+                    'generated_at': timestamp,
+                    'username': username
+                }
+                json.dump(bio_dict, f, indent=2, ensure_ascii=False)
+            
+            messagebox.showinfo("Saved", f"AI bio versions saved to:\n{primary_file.name}\n{json_file.name}")
+            self.logger.info(f"✅ AI bio versions saved to output directory")
+            
+        except Exception as e:
+            messagebox.showerror("Save Error", f"Failed to save AI bio versions:\n{str(e)}")
+    
+    def export_ai_bio_guide(self):
+        """Export comprehensive AI bio implementation guide."""
+        if not hasattr(self, 'current_ai_bio_result'):
+            messagebox.showwarning("No Bio Generated", "Please generate an AI bio first.")
+            return
+        
+        try:
+            output_dir = Path("output")
+            output_dir.mkdir(exist_ok=True)
+            
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            username = self.current_user_data.username if self.current_user_data else "user"
+            guide_file = output_dir / f"AI_LinkedIn_Bio_Guide_{username}_{timestamp}.md"
+            
+            guide_content = self._generate_ai_bio_guide_content()
+            
+            with open(guide_file, 'w', encoding='utf-8') as f:
+                f.write(guide_content)
+            
+            messagebox.showinfo("Exported", f"AI bio implementation guide exported to:\n{guide_file.name}")
+            self.logger.info(f"✅ AI bio guide exported to {guide_file.name}")
+            
+        except Exception as e:
+            messagebox.showerror("Export Error", f"Failed to export AI bio guide:\n{str(e)}")
+    
+    def _generate_ai_bio_guide_content(self) -> str:
+        """Generate comprehensive AI bio implementation guide."""
+        username = self.current_user_data.username if self.current_user_data else "Professional"
+        
+        guide_content = f"""# 🤖 AI LinkedIn Bio Implementation Guide
+*Generated for {username} on {datetime.now().strftime('%B %d, %Y')}*
+
+## 🎯 Your AI-Generated LinkedIn Bio
+
+### Primary Bio (Recommended)
+```
+{self.current_ai_bio_result.primary_bio}
+```
+
+### Alternative Versions
+
+#### Version 1: Creative Style
+```
+{self.current_ai_bio_result.alternative_versions[0] if self.current_ai_bio_result.alternative_versions else 'Not available'}
+```
+
+#### Version 2: Technical Focus
+```
+{self.current_ai_bio_result.alternative_versions[1] if len(self.current_ai_bio_result.alternative_versions) > 1 else 'Not available'}
+```
+
+## 📊 Bio Analysis & Optimization
+
+### Quality Metrics
+- **Readability Score**: {self.current_ai_bio_result.readability_score:.1f}/100
+- **Engagement Potential**: {self.current_ai_bio_result.engagement_potential.title()}
+- **SEO Optimization**: {self.current_ai_bio_result.search_optimization_score:.1f}/100
+- **Uniqueness Score**: {self.current_ai_bio_result.uniqueness_score:.1f}/100
+
+### Keywords Successfully Integrated
+{chr(10).join(f"- {keyword}" for keyword in self.current_ai_bio_result.primary_keywords_used) if self.current_ai_bio_result.primary_keywords_used else "- No specific keywords detected"}
+
+### Authenticity Indicators
+{chr(10).join(f"- {indicator}" for indicator in self.current_ai_bio_result.authenticity_indicators) if self.current_ai_bio_result.authenticity_indicators else "- Standard authenticity markers"}
+
+## 🚀 Implementation Strategy
+
+### Step 1: Choose Your Bio
+1. **Primary Bio**: Best overall balance of professionalism and personality
+2. **Alternative 1**: More creative and engaging
+3. **Alternative 2**: Technical focus for engineering roles
+
+### Step 2: Optimize for Your Goals
+- **Job Seeking**: Use primary bio with technical keywords
+- **Networking**: Consider the creative alternative
+- **Thought Leadership**: Emphasize innovation and expertise
+
+### Step 3: LinkedIn Best Practices
+1. **Profile Photo**: Professional headshot
+2. **Headline**: Complement your bio with role-specific keywords
+3. **Experience**: Align job descriptions with bio messaging
+4. **Skills**: Endorse skills mentioned in your bio
+5. **Content**: Share posts that reflect your bio's value proposition
+
+## 📈 Performance Tracking
+
+### Metrics to Monitor
+- Profile views (aim for 20% increase)
+- Connection requests (quality over quantity)
+- InMail responses (if applicable)
+- Content engagement on posts
+
+### A/B Testing
+1. Use primary bio for 2 weeks
+2. Switch to alternative version
+3. Compare metrics
+4. Optimize based on results
+
+## 🎨 Customization Tips
+
+### Personalization Options
+- Add industry-specific achievements
+- Include personal interests (if relevant)
+- Adjust tone based on company culture
+- Update with new projects and skills
+
+### Seasonal Updates
+- Quarterly review and refresh
+- Add new certifications or projects
+- Update with career progression
+- Reflect current goals and interests
+
+## 🔧 Bio Component Breakdown
+
+### Opening Hook
+"{self.current_ai_bio_result.opening_hook}"
+*Purpose: Immediately communicates your value and expertise*
+
+### Expertise Statement  
+"{self.current_ai_bio_result.expertise_statement}"
+*Purpose: Establishes credibility and technical competence*
+
+### Achievement Highlights
+"{self.current_ai_bio_result.achievement_highlights}"
+*Purpose: Provides concrete evidence of your impact*
+
+### Value Proposition
+"{self.current_ai_bio_result.value_proposition}"
+*Purpose: Explains what makes you unique and valuable*
+
+{f'''### Passion Statement
+"{self.current_ai_bio_result.passion_statement}"
+*Purpose: Shows personality and genuine interest*''' if self.current_ai_bio_result.passion_statement else ''}
+
+{f'''### Call to Action
+"{self.current_ai_bio_result.call_to_action}"
+*Purpose: Encourages meaningful connections and opportunities*''' if self.current_ai_bio_result.call_to_action else ''}
+
+## 💡 Next Steps
+
+1. **Implement** your chosen bio on LinkedIn
+2. **Update** other sections to align with bio messaging
+3. **Share** content that reinforces your value proposition
+4. **Monitor** performance and engagement metrics
+5. **Iterate** based on results and career changes
+
+---
+
+*This guide was generated using AI analysis of your GitHub repositories to create authentic, data-driven LinkedIn content that represents your actual skills and achievements.*
+
+**Generated by RepoReadme AI Bio Generator**
+"""
+        
+        return guide_content
     
     def generate_portfolio(self):
         """Generate GitHub portfolio website."""
@@ -2060,12 +2973,404 @@ Total Files: {total_files + 1}
         except Exception as e:
             messagebox.showerror("Export Error", f"Failed to export full archive:\n{str(e)}")
     
+    def toggle_openrouter_config(self):
+        """Toggle OpenRouter configuration visibility."""
+        if self.openrouter_enabled.get():
+            self.openrouter_settings_frame.pack(fill='x', pady=(10, 0))
+        else:
+            self.openrouter_settings_frame.pack_forget()
+    
+    def update_temperature_label(self, value):
+        """Update temperature label."""
+        self.temperature_label.config(text=f"{float(value):.1f}")
+    
+    def update_model_pricing_display(self, event=None):
+        """Update cost estimate display when model changes."""
+        try:
+            from openrouter_service import OpenRouterAIService
+            service = OpenRouterAIService()
+            pricing = service.get_model_pricing(self.openrouter_model.get())
+            
+            if pricing:
+                cost = pricing.estimate_bio_cost()
+                self.cost_estimate_label.config(text=f"Est: ${cost:.4f}")
+            else:
+                self.cost_estimate_label.config(text="Est: N/A")
+                
+        except Exception as e:
+            self.cost_estimate_label.config(text="Est: N/A")
+    
+    def show_model_pricing(self):
+        """Show detailed model pricing information."""
+        try:
+            from openrouter_service import OpenRouterAIService
+            service = OpenRouterAIService()
+            models_info = service.get_all_models_with_pricing()
+            
+            # Create pricing window
+            pricing_window = tk.Toplevel(self.root)
+            pricing_window.title("OpenRouter Model Pricing")
+            pricing_window.geometry("800x600")
+            pricing_window.resizable(True, True)
+            
+            # Create main frame with scrollbar
+            main_frame = ttk.Frame(pricing_window)
+            main_frame.pack(fill='both', expand=True, padx=10, pady=10)
+            
+            # Header
+            header_label = ttk.Label(main_frame, text="🤖 OpenRouter Model Pricing & Performance", 
+                                   font=('Segoe UI', 14, 'bold'))
+            header_label.pack(pady=(0, 10))
+            
+            # Info label
+            info_label = ttk.Label(main_frame, 
+                                 text="Cost estimates for typical bio enhancement (500 input + 300 output tokens)",
+                                 font=('Segoe UI', 9), foreground='#666')
+            info_label.pack(pady=(0, 10))
+            
+            # Create treeview for model data
+            columns = ('Model', 'Description', 'Cost/Bio', 'Provider', 'Latency')
+            tree = ttk.Treeview(main_frame, columns=columns, show='headings', height=15)
+            
+            # Configure columns
+            tree.heading('Model', text='Model')
+            tree.heading('Description', text='Description')
+            tree.heading('Cost/Bio', text='Cost per Bio')
+            tree.heading('Provider', text='Provider')
+            tree.heading('Latency', text='Avg Latency')
+            
+            tree.column('Model', width=200)
+            tree.column('Description', width=300)
+            tree.column('Cost/Bio', width=100)
+            tree.column('Provider', width=100)
+            tree.column('Latency', width=100)
+            
+            # Add scrollbar
+            scrollbar = ttk.Scrollbar(main_frame, orient='vertical', command=tree.yview)
+            tree.configure(yscrollcommand=scrollbar.set)
+            
+            # Pack treeview and scrollbar
+            tree_frame = ttk.Frame(main_frame)
+            tree_frame.pack(fill='both', expand=True)
+            
+            tree.pack(side='left', fill='both', expand=True)
+            scrollbar.pack(side='right', fill='y')
+            
+            # Populate with model data
+            for model_id, model_name, description, cost, provider, latency in models_info:
+                tree.insert('', 'end', values=(model_name, description, cost, provider, latency))
+            
+            # Bottom info frame
+            info_frame = ttk.Frame(main_frame)
+            info_frame.pack(fill='x', pady=(10, 0))
+            
+            ttk.Label(info_frame, text="💡 Recommendations:", font=('Segoe UI', 10, 'bold')).pack(anchor='w')
+            ttk.Label(info_frame, text="• Budget: Llama-3-8b or DeepSeek V3.2", font=('Segoe UI', 9)).pack(anchor='w')
+            ttk.Label(info_frame, text="• Balanced: GPT-3.5-turbo or Claude-3-haiku", font=('Segoe UI', 9)).pack(anchor='w')
+            ttk.Label(info_frame, text="• Premium: Claude Sonnet 4.5 or GPT-4", font=('Segoe UI', 9)).pack(anchor='w')
+            ttk.Label(info_frame, text="• Speed: Gemini 2.5 Flash (0.4s latency)", font=('Segoe UI', 9)).pack(anchor='w')
+            
+            # Double-click to select model
+            def on_model_select(event):
+                selection = tree.selection()[0]
+                model_name = tree.item(selection, 'values')[0]
+                # Find model ID by name
+                for model_id, pricing in service.model_pricing.items():
+                    if pricing.model_name == model_name:
+                        self.openrouter_model.set(model_id)
+                        self.update_model_pricing_display()
+                        pricing_window.destroy()
+                        break
+            
+            tree.bind('<Double-1>', on_model_select)
+            
+            # Instructions
+            ttk.Label(info_frame, text="💡 Double-click a model to select it", 
+                     font=('Segoe UI', 9, 'italic'), foreground='#666').pack(anchor='w', pady=(5, 0))
+            
+        except Exception as e:
+            messagebox.showerror("Pricing Error", f"Failed to show pricing information:\n{str(e)}")
+    
+    def load_openrouter_settings(self):
+        """Load OpenRouter settings from configuration."""
+        try:
+            # Use get_setting() for consistency with other settings
+            api_key = self.settings_manager.get_setting('openrouter_api_key', '')
+            model = self.settings_manager.get_setting('openrouter_model', 'openai/gpt-3.5-turbo')
+            enabled = self.settings_manager.get_setting('openrouter_enabled', False)
+            temperature = self.settings_manager.get_setting('openrouter_temperature', 0.7)
+            
+            if api_key:
+                self.openrouter_api_key.delete(0, 'end')  # Clear first
+                self.openrouter_api_key.insert(0, api_key)
+            
+            if model:
+                self.openrouter_model.set(model)
+            
+            self.openrouter_enabled.set(enabled)
+            self.toggle_openrouter_config()
+            
+            self.openrouter_temperature.set(temperature)
+            self.update_temperature_label(temperature)
+                
+        except Exception as e:
+            self.logger.debug(f"Could not load OpenRouter settings: {e}")
+    
+    def save_openrouter_key(self):
+        """Save OpenRouter API key to settings."""
+        api_key = self.openrouter_api_key.get().strip()
+        
+        if not api_key:
+            messagebox.showwarning("Missing API Key", "Please enter your OpenRouter API key.")
+            return
+        
+        try:
+            # Save to settings (set_setting already saves automatically)
+            self.settings_manager.set_setting('openrouter_api_key', api_key)
+            self.settings_manager.set_setting('openrouter_model', self.openrouter_model.get())
+            self.settings_manager.set_setting('openrouter_enabled', self.openrouter_enabled.get())
+            self.settings_manager.set_setting('openrouter_temperature', self.openrouter_temperature.get())
+            
+            messagebox.showinfo("Saved", "OpenRouter API key saved successfully!")
+            self.logger.info("OpenRouter API key saved to settings")
+            
+        except Exception as e:
+            messagebox.showerror("Save Error", f"Failed to save OpenRouter settings:\n{str(e)}")
+    
+    def save_github_username(self):
+        """Save GitHub username to settings."""
+        username = self.username_var.get().strip()
+        
+        if not username:
+            messagebox.showwarning("Missing Username", "Please enter your GitHub username.")
+            return
+        
+        try:
+            self.settings_manager.set_setting('github_username', username)
+            
+            # Update status display
+            self.update_credentials_status()
+            
+            messagebox.showinfo("Saved", "GitHub username saved successfully!")
+            self.logger.info("GitHub username saved to settings")
+            
+        except Exception as e:
+            messagebox.showerror("Save Error", f"Failed to save GitHub username:\n{str(e)}")
+    
+    def save_github_token(self):
+        """Save GitHub token to settings."""
+        token = self.token_var.get().strip()  # Strip whitespace
+        
+        if not token:
+            messagebox.showwarning("Missing Token", "Please enter your GitHub token.")
+            return
+        
+        try:
+            self.settings_manager.set_setting('github_token', token)
+            
+            # Update status display
+            self.update_credentials_status()
+            
+            messagebox.showinfo("Saved", "GitHub token saved successfully!")
+            self.logger.info("GitHub token saved to settings")
+            
+        except Exception as e:
+            messagebox.showerror("Save Error", f"Failed to save GitHub token:\n{str(e)}")
+    
+    def test_openrouter_connection(self):
+        """Test OpenRouter API connection."""
+        api_key = self.openrouter_api_key.get().strip()
+        
+        if not api_key:
+            messagebox.showwarning("Missing API Key", "Please enter your OpenRouter API key first.")
+            return
+        
+        try:
+            self.status_var.set("Testing OpenRouter connection...")
+            
+            # Create OpenRouter config and service
+            config = OpenRouterConfig(
+                api_key=api_key,
+                model=self.openrouter_model.get(),
+                temperature=self.openrouter_temperature.get()
+            )
+            
+            service = OpenRouterAIService(config)
+            result = service.test_connection()
+            
+            if result["success"]:
+                messagebox.showinfo("Connection Success", 
+                                   f"✅ OpenRouter API connection successful!\n\n"
+                                   f"Model: {result['model']}\n"
+                                   f"Response: {result['response']}\n"
+                                   f"Tokens used: {result['tokens_used']}")
+                self.logger.info("OpenRouter API connection test successful")
+            else:
+                messagebox.showerror("Connection Failed", 
+                                   f"❌ OpenRouter API connection failed:\n\n"
+                                   f"Error: {result['error']}\n"
+                                   f"Details: {result.get('details', 'No details available')}")
+                self.logger.error(f"OpenRouter API connection test failed: {result['error']}")
+            
+            self.status_var.set("Ready")
+            
+        except Exception as e:
+            messagebox.showerror("Test Error", f"Failed to test OpenRouter connection:\n{str(e)}")
+            self.status_var.set("Ready")
+    
+    def enhance_bio_with_openrouter(self):
+        """Enhance current bio using OpenRouter AI."""
+        if not hasattr(self, 'current_ai_bio_result') or not self.current_ai_bio_result:
+            messagebox.showwarning("No Bio Generated", "Please generate an AI bio first.")
+            return
+        
+        api_key = self.openrouter_api_key.get().strip()
+        if not api_key:
+            messagebox.showwarning("OpenRouter Not Configured", 
+                                 "Please configure your OpenRouter API key first.")
+            return
+        
+        if not self.openrouter_enabled.get():
+            messagebox.showwarning("OpenRouter Disabled", 
+                                 "Please enable OpenRouter AI Enhancement first.")
+            return
+        
+        try:
+            self.status_var.set("Enhancing bio with OpenRouter AI...")
+            self.enhance_with_openrouter_btn.config(state='disabled')
+            
+            # Get cost estimate first
+            service = OpenRouterAIService()
+            cost_info = service.estimate_enhancement_cost(
+                self.current_ai_bio_result.primary_bio, 
+                self.openrouter_model.get()
+            )
+            
+            # Show cost confirmation
+            if "error" not in cost_info:
+                cost_msg = (f"Enhancement Cost Estimate:\n\n"
+                           f"Model: {cost_info['model']}\n"
+                           f"Provider: {cost_info['provider']}\n"
+                           f"Estimated Cost: {cost_info['cost_formatted']}\n"
+                           f"Input Tokens: ~{cost_info['estimated_input_tokens']}\n"
+                           f"Output Tokens: ~{cost_info['estimated_output_tokens']}\n\n"
+                           f"Proceed with enhancement?")
+                
+                if not messagebox.askyesno("Confirm Enhancement", cost_msg):
+                    return
+            
+            # Create enhancement request
+            enhancement_request = EnhancementRequest(
+                original_bio=self.current_ai_bio_result.primary_bio,
+                target_style=self.ai_bio_style.get(),
+                target_role=self.ai_target_role.get(),
+                target_industry="technology",
+                enhancement_type="improve",
+                include_metrics=self.ai_use_metrics.get(),
+                github_username=self.current_user_data.username if self.current_user_data else "",
+                primary_languages=list(self.current_user_data.profile_data.primary_languages[:5]) if self.current_user_data and self.current_user_data.profile_data else [],
+                project_highlights=[p['name'] for p in self.current_user_data.profile_data.featured_projects[:3]] if self.current_user_data and self.current_user_data.profile_data else []
+            )
+            
+            # Create OpenRouter service
+            config = OpenRouterConfig(
+                api_key=api_key,
+                model=self.openrouter_model.get(),
+                temperature=self.openrouter_temperature.get(),
+                enhance_creativity=self.openrouter_enhance_creativity.get(),
+                improve_readability=self.openrouter_improve_readability.get(),
+                optimize_keywords=self.openrouter_optimize_keywords.get()
+            )
+            
+            service = OpenRouterAIService(config)
+            enhancement_result = service.enhance_linkedin_bio(enhancement_request)
+            
+            # Update the primary bio with enhanced version
+            self.ai_primary_bio_text.delete('1.0', tk.END)
+            self.ai_primary_bio_text.insert('1.0', enhancement_result.enhanced_bio)
+            
+            # Generate new alternatives using OpenRouter
+            alternatives = service.generate_bio_alternatives(enhancement_result.enhanced_bio, 3)
+            for i, alt_text_widget in enumerate(self.ai_alt_bio_frames):
+                alt_text_widget.delete('1.0', tk.END)
+                if i < len(alternatives):
+                    alt_text_widget.insert('1.0', alternatives[i])
+            
+            # Update analysis with enhancement info
+            cost_display = ""
+            if hasattr(enhancement_result, 'actual_cost') and enhancement_result.actual_cost is not None:
+                cost_display = f"💰 Actual Cost: ${enhancement_result.actual_cost:.6f}"
+                if hasattr(enhancement_result, 'prompt_tokens') and hasattr(enhancement_result, 'completion_tokens'):
+                    cost_display += f" ({enhancement_result.prompt_tokens} + {enhancement_result.completion_tokens} tokens)"
+            else:
+                # Fallback to estimated cost
+                estimated_cost = enhancement_result.tokens_used * 0.001 if enhancement_result.tokens_used else 0
+                cost_display = f"💰 Estimated Cost: ${estimated_cost:.6f}"
+            
+            generation_info = ""
+            if hasattr(enhancement_result, 'generation_id') and enhancement_result.generation_id:
+                generation_info = f"🔍 Generation ID: {enhancement_result.generation_id}\n"
+            
+            enhancement_analysis = f"""🚀 OPENROUTER AI ENHANCEMENT RESULTS
+{chr(61) * 60}
+
+✨ Enhancement Score: {enhancement_result.enhancement_score:.1f}/100
+🤖 Model Used: {enhancement_result.model_used}
+⚡ Processing Time: {enhancement_result.processing_time:.2f}s
+🎯 Tokens Used: {enhancement_result.tokens_used}
+{cost_display}
+{generation_info}
+📈 IMPROVEMENTS MADE:
+{chr(10).join(f"• {improvement}" for improvement in enhancement_result.improvements_made)}
+
+💡 SUGGESTIONS:
+{chr(10).join(f"• {suggestion}" for suggestion in enhancement_result.suggestions)}
+
+📊 QUALITY IMPROVEMENTS:
+• Readability: {enhancement_result.readability_improvement:+.1f}%
+• Engagement: {enhancement_result.engagement_improvement:+.1f}%
+• Keywords: {enhancement_result.keyword_optimization:+.1f}%
+
+{chr(61) * 60}
+
+""" + self.ai_analysis_text.get('1.0', tk.END)
+            
+            self.ai_analysis_text.delete('1.0', tk.END)
+            self.ai_analysis_text.insert('1.0', enhancement_analysis)
+            
+            # Update stored result
+            self.current_ai_bio_result.primary_bio = enhancement_result.enhanced_bio
+            self.current_ai_bio_result.alternative_versions = alternatives
+            
+            self.status_var.set("Bio enhancement complete!")
+            
+            # Show completion message with cost info
+            cost_info = ""
+            if hasattr(enhancement_result, 'actual_cost') and enhancement_result.actual_cost is not None:
+                cost_info = f"\nActual Cost: ${enhancement_result.actual_cost:.6f}"
+            else:
+                estimated_cost = enhancement_result.tokens_used * 0.001 if enhancement_result.tokens_used else 0
+                cost_info = f"\nEstimated Cost: ${estimated_cost:.6f}"
+            
+            messagebox.showinfo("Enhancement Complete", 
+                               f"✅ Bio enhanced successfully!\n\n"
+                               f"Enhancement Score: {enhancement_result.enhancement_score:.1f}/100\n"
+                               f"Improvements: {len(enhancement_result.improvements_made)}\n"
+                               f"Processing Time: {enhancement_result.processing_time:.2f}s{cost_info}")
+            
+        except Exception as e:
+            self.logger.error(f"OpenRouter bio enhancement failed: {e}")
+            messagebox.showerror("Enhancement Error", f"Failed to enhance bio with OpenRouter:\n{str(e)}")
+            
+        finally:
+            self.enhance_with_openrouter_btn.config(state='normal')
+    
     def load_settings(self):
         """Load application settings."""
         try:
             # Load individual settings
             username = self.settings_manager.get_setting('github_username', '')
-            token = self.settings_manager.get_setting('github_token', '')
+            token = self.settings_manager.get_setting('github_token', '').strip()  # Strip whitespace
             cv_style = self.settings_manager.get_setting('cv_style', 'modern')
             linkedin_tone = self.settings_manager.get_setting('linkedin_tone', 'professional')
             
@@ -2077,10 +3382,39 @@ Total Files: {total_files + 1}
                 self.cv_style_var.set(cv_style)
             if hasattr(self, 'linkedin_tone_var'):
                 self.linkedin_tone_var.set(linkedin_tone)
+            
+            # Update credentials status
+            self.update_credentials_status()
                 
             self.logger.info("Settings loaded successfully")
         except Exception as e:
             self.logger.warning(f"Failed to load settings: {e}")
+    
+    def update_credentials_status(self):
+        """Update the credentials status display."""
+        try:
+            username = self.settings_manager.get_setting('github_username', '')
+            token = self.settings_manager.get_setting('github_token', '').strip()  # Strip whitespace
+            
+            # Update username status
+            if username:
+                self.username_status_var.set(f"✅ {username}")
+                self.username_status_label.configure(foreground='green')
+            else:
+                self.username_status_var.set("❌ Not saved")
+                self.username_status_label.configure(foreground='red')
+            
+            # Update token status
+            if token:
+                masked_token = token[:4] + "..." + token[-4:] if len(token) > 8 else "***"
+                self.token_status_var.set(f"✅ {masked_token}")
+                self.token_status_label.configure(foreground='green')
+            else:
+                self.token_status_var.set("❌ Not saved")
+                self.token_status_label.configure(foreground='red')
+                
+        except Exception as e:
+            self.logger.warning(f"Failed to update credentials status: {e}")
     
     def save_settings(self):
         """Save current settings."""
@@ -2097,6 +3431,75 @@ Total Files: {total_files + 1}
             
         except Exception as e:
             self.logger.error(f"Failed to save settings: {e}")
+    
+    def _start_loading_animation(self, operation_name="Processing"):
+        """Start animated loading indicator."""
+        self.loading_active = True
+        self.loading_operation = operation_name
+        self.loading_frame = 0
+        self.loading_symbols = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        self._animate_loading()
+    
+    def _animate_loading(self):
+        """Animate the loading indicator."""
+        if not getattr(self, 'loading_active', False):
+            return
+        
+        # Update status with animated symbol
+        symbol = self.loading_symbols[self.loading_frame % len(self.loading_symbols)]
+        self.status_var.set(f"{symbol} {self.loading_operation}...")
+        
+        # Schedule next frame
+        self.loading_frame += 1
+        self.root.after(100, self._animate_loading)  # Update every 100ms
+    
+    def _stop_loading_animation(self):
+        """Stop the loading animation."""
+        self.loading_active = False
+    
+    def add_quick_tech(self, category):
+        """Add predefined technology stacks for common categories."""
+        quick_stacks = {
+            'frontend': {
+                'languages': 'JavaScript, TypeScript, HTML, CSS',
+                'frameworks': 'React, NextJS, Vue.js, Angular, Tailwind CSS',
+                'tools': 'VS Code, Vite, Webpack, npm, Vercel, Netlify'
+            },
+            'backend': {
+                'languages': 'Python, Node.js, Java, C#, Go',
+                'frameworks': 'Django, Flask, Express, Spring Boot, .NET Core',
+                'tools': 'Docker, PostgreSQL, MongoDB, Redis, AWS, Git'
+            },
+            'fullstack': {
+                'languages': 'JavaScript, TypeScript, Python, HTML, CSS',
+                'frameworks': 'React, NextJS, Django, Express, Tailwind CSS',
+                'tools': 'VS Code, Docker, PostgreSQL, Git, AWS, Vercel'
+            },
+            'mobile': {
+                'languages': 'JavaScript, TypeScript, Swift, Kotlin, Dart',
+                'frameworks': 'React Native, Flutter, Avalonia, Xamarin',
+                'tools': 'Xcode, Android Studio, Expo, Firebase, VS Code'
+            }
+        }
+        
+        if category in quick_stacks:
+            stack = quick_stacks[category]
+            
+            # Clear existing content
+            self.ai_programming_languages.delete('1.0', tk.END)
+            self.ai_frameworks_libraries.delete('1.0', tk.END)
+            self.ai_tools_platforms.delete('1.0', tk.END)
+            
+            # Insert new content
+            self.ai_programming_languages.insert('1.0', stack['languages'])
+            self.ai_frameworks_libraries.insert('1.0', stack['frameworks'])
+            self.ai_tools_platforms.insert('1.0', stack['tools'])
+    
+    def clear_tech_fields(self):
+        """Clear all technology stack fields."""
+        self.ai_programming_languages.delete('1.0', tk.END)
+        self.ai_frameworks_libraries.delete('1.0', tk.END)
+        self.ai_tools_platforms.delete('1.0', tk.END)
     
     def run(self):
         """Start the GUI application."""

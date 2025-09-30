@@ -2,6 +2,8 @@
 
 > Comprehensive toolkit for README generation, CV creation, and LinkedIn profile optimization with intelligent GitHub analysis
 
+🚀 **Quick Start**: `python main_unified.py` (Full professional suite) | `python main.py` (Legacy README-only)
+
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg?style=flat)](https://github.com/dev-alt/RepoReadme)
 [![Language](https://img.shields.io/badge/language-python-blue.svg?style=flat)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat)](LICENSE)
@@ -253,8 +255,10 @@ pip install -r requirements.txt
 
 3. **Launch the application**
 ```bash
-python main.py
+python main_unified.py
 ```
+
+> 💡 **Note**: You can also use `python main.py` for the legacy README-only version, but `main_unified.py` provides the complete professional developer suite with CV generation, LinkedIn optimization, and enhanced features.
 
 ## 📖 Usage
 

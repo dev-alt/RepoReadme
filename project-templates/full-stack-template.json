@@ -1,0 +1,76 @@
+{
+  "id": "",
+  "title": "",
+  "slug": "",
+  "summary": "",
+  "description": "",
+  "category": "Full-Stack Application",
+  "status": "In Development",
+  "dateCreated": "",
+  "dateUpdated": "",
+  "technologies": [
+    { "name": "Next.js", "icon": "logos:nextjs-icon", "category": "Framework" },
+    { "name": "React", "icon": "logos:react", "category": "Frontend" },
+    { "name": "TypeScript", "icon": "logos:typescript-icon", "category": "Language" },
+    { "name": "Tailwind CSS", "icon": "logos:tailwindcss-icon", "category": "Frontend" },
+    { "name": "Node.js", "icon": "logos:nodejs-icon", "category": "API" },
+    { "name": "PostgreSQL", "icon": "logos:postgresql", "category": "Database" },
+    { "name": "Prisma", "icon": "logos:prisma", "category": "Database" }
+  ],
+  "architecture": "Full-stack Next.js with API routes and database",
+  "technicalDetails": [
+    {
+      "title": "Frontend Implementation",
+      "description": "React components with TypeScript and Tailwind",
+      "codeSnippet": ""
+    },
+    {
+      "title": "API Layer",
+      "description": "Next.js API routes with database integration",
+      "codeSnippet": ""
+    },
+    {
+      "title": "Database Design",
+      "description": "Relational database schema with Prisma ORM",
+      "codeSnippet": ""
+    }
+  ],
+  "images": [
+    {
+      "url": "/Projects/APP_NAME_Dashboard.png",
+      "alt": "APP_NAME Dashboard",
+      "width": 1920,
+      "height": 1080,
+      "isFeatured": true
+    },
+    {
+      "url": "/Projects/APP_NAME_Features.png",
+      "alt": "APP_NAME Key Features",
+      "width": 1920,
+      "height": 1080,
+      "isFeatured": false
+    }
+  ],
+  "links": [
+    {
+      "type": "github",
+      "url": "https://github.com/dev-alt/FULLSTACK_REPO",
+      "label": "Source Code"
+    },
+    {
+      "type": "demo",
+      "url": "https://APP_NAME.dev-alt.tech",
+      "label": "Live Application"
+    }
+  ],
+  "keyPoints": [
+    "Full-stack Next.js application",
+    "TypeScript throughout the stack",
+    "Modern React with hooks and context",
+    "Database integration with Prisma ORM",
+    "Authentication and authorization",
+    "Responsive design with Tailwind CSS",
+    "API routes for backend functionality",
+    "Production deployment ready"
+  ]
+}

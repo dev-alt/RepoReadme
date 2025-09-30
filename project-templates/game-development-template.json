@@ -1,0 +1,64 @@
+{
+  "id": "",
+  "title": "",
+  "slug": "",
+  "summary": "",
+  "description": "",
+  "category": "Game Development",
+  "status": "In Development",
+  "dateCreated": "",
+  "dateUpdated": "",
+  "technologies": [
+    { "name": "Unity", "icon": "logos:unity", "category": "Game Engine" },
+    { "name": "C#", "icon": "logos:c-sharp", "category": "Language" }
+  ],
+  "architecture": "Component-based architecture with Unity",
+  "technicalDetails": [
+    {
+      "title": "Player Controller",
+      "description": "Custom player movement and input handling system",
+      "codeSnippet": ""
+    },
+    {
+      "title": "Game State Management",
+      "description": "Centralized game state and save/load system",
+      "codeSnippet": ""
+    }
+  ],
+  "images": [
+    {
+      "url": "/Projects/GAME_NAME_Main.png",
+      "alt": "GAME_NAME Title Screen",
+      "width": 1920,
+      "height": 1080,
+      "isFeatured": true
+    },
+    {
+      "url": "/Projects/GAME_NAME_Gameplay.png",
+      "alt": "GAME_NAME Gameplay Screenshot",
+      "width": 1920,
+      "height": 1080,
+      "isFeatured": false
+    }
+  ],
+  "links": [
+    {
+      "type": "github",
+      "url": "https://github.com/dev-alt/GAME_REPO",
+      "label": "Source Code"
+    },
+    {
+      "type": "download",
+      "url": "https://github.com/dev-alt/GAME_REPO/releases",
+      "label": "Download Game"
+    }
+  ],
+  "keyPoints": [
+    "Unity-based game development",
+    "Custom gameplay mechanics",
+    "Component-based architecture",
+    "Cross-platform compatibility",
+    "Save/load functionality",
+    "UI system integration"
+  ]
+}

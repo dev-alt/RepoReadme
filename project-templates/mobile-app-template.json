@@ -1,0 +1,58 @@
+{
+  "id": "",
+  "title": "",
+  "slug": "",
+  "summary": "",
+  "description": "",
+  "category": "Mobile App",
+  "status": "In Development",
+  "dateCreated": "",
+  "dateUpdated": "",
+  "technologies": [
+    { "name": "React Native", "icon": "logos:react", "category": "Mobile" },
+    { "name": "TypeScript", "icon": "logos:typescript-icon", "category": "Language" },
+    { "name": "Expo", "icon": "logos:expo-icon", "category": "Framework" }
+  ],
+  "architecture": "React Native with Expo",
+  "technicalDetails": [
+    {
+      "title": "Navigation System",
+      "description": "Stack and tab navigation implementation",
+      "codeSnippet": ""
+    },
+    {
+      "title": "State Management",
+      "description": "Global state management solution",
+      "codeSnippet": ""
+    }
+  ],
+  "images": [
+    {
+      "url": "/Projects/APP_NAME_Mobile.png",
+      "alt": "APP_NAME Mobile Interface",
+      "width": 375,
+      "height": 812,
+      "isFeatured": true
+    }
+  ],
+  "links": [
+    {
+      "type": "github",
+      "url": "https://github.com/dev-alt/MOBILE_REPO",
+      "label": "Source Code"
+    },
+    {
+      "type": "demo",
+      "url": "https://expo.dev/@dev-alt/APP_NAME",
+      "label": "Expo Demo"
+    }
+  ],
+  "keyPoints": [
+    "Cross-platform mobile application",
+    "React Native with Expo framework",
+    "TypeScript for type safety",
+    "Native device API integration",
+    "Responsive mobile design",
+    "App store deployment ready"
+  ]
+}

@@ -49,8 +49,20 @@ class AppSettings:
     
     # GitHub settings
     remember_github_token: bool = False
+    
+    # OpenRouter AI settings
+    openrouter_api_key: str = ""
+    openrouter_model: str = "openai/gpt-3.5-turbo"
+    openrouter_enabled: bool = False
+    openrouter_enhance_bios: bool = True
+    openrouter_max_tokens: int = 1000
+    openrouter_temperature: float = 0.7
     github_username: str = ""
     github_token: str = ""  # This should be encrypted in production
+    
+    # CV and LinkedIn settings
+    cv_style: str = "modern"
+    linkedin_tone: str = "professional"
     
     # Logging settings
     log_level: str = "INFO"
@@ -139,6 +151,10 @@ class SettingsManager:
         try:
             # Create backup of existing settings
             if self.settings_file.exists():
+                # Remove existing backup if it exists
+                if self.backup_file.exists():
+                    self.backup_file.unlink()
+                # Create new backup
                 self.settings_file.rename(self.backup_file)
             
             # Save new settings

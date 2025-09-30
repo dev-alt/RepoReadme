@@ -1,0 +1,52 @@
+{
+  "id": "",
+  "title": "",
+  "slug": "",
+  "summary": "",
+  "description": "",
+  "category": "Web Development",
+  "status": "In Development",
+  "dateCreated": "",
+  "dateUpdated": "",
+  "technologies": [
+    { "name": "Next.js", "icon": "logos:nextjs-icon", "category": "Framework" },
+    { "name": "React", "icon": "logos:react", "category": "Frontend" },
+    { "name": "TypeScript", "icon": "logos:typescript-icon", "category": "Language" },
+    { "name": "Tailwind CSS", "icon": "logos:tailwindcss-icon", "category": "Frontend" }
+  ],
+  "architecture": "Next.js App Router with React Context API",
+  "technicalDetails": [
+    {
+      "title": "",
+      "description": "",
+      "codeSnippet": ""
+    }
+  ],
+  "images": [
+    {
+      "url": "/Projects/PROJECT_NAME_Main.png",
+      "alt": "PROJECT_NAME Main Interface",
+      "width": 1920,
+      "height": 1080,
+      "isFeatured": true
+    }
+  ],
+  "links": [
+    {
+      "type": "github",
+      "url": "https://github.com/dev-alt/PROJECT_REPO",
+      "label": "Source Code"
+    },
+    {
+      "type": "demo",
+      "url": "https://PROJECT_NAME.dev-alt.tech",
+      "label": "Live Demo"
+    }
+  ],
+  "keyPoints": [
+    "Modern Next.js application with App Router",
+    "TypeScript for type safety",
+    "Responsive design with Tailwind CSS",
+    "Component-based architecture"
+  ]
+}

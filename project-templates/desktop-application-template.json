@@ -1,0 +1,57 @@
+{
+  "id": "",
+  "title": "",
+  "slug": "",
+  "summary": "",
+  "description": "",
+  "category": "Desktop Application",
+  "status": "In Development",
+  "dateCreated": "",
+  "dateUpdated": "",
+  "technologies": [
+    { "name": "C#", "icon": "logos:c-sharp", "category": "Language" },
+    { "name": ".NET", "icon": "logos:dotnet", "category": "Framework" }
+  ],
+  "architecture": "Model-View-ViewModel (MVVM)",
+  "technicalDetails": [
+    {
+      "title": "MVVM Implementation",
+      "description": "Clean separation of concerns with MVVM pattern",
+      "codeSnippet": ""
+    },
+    {
+      "title": "Theme Management",
+      "description": "Dynamic theme switching with persistent settings",
+      "codeSnippet": ""
+    }
+  ],
+  "images": [
+    {
+      "url": "/Projects/APP_NAME_Main.png",
+      "alt": "APP_NAME Main Interface",
+      "width": 1920,
+      "height": 1080,
+      "isFeatured": true
+    }
+  ],
+  "links": [
+    {
+      "type": "github",
+      "url": "https://github.com/dev-alt/APP_REPO",
+      "label": "Source Code"
+    },
+    {
+      "type": "download",
+      "url": "https://github.com/dev-alt/APP_REPO/releases",
+      "label": "Download Application"
+    }
+  ],
+  "keyPoints": [
+    "Modern desktop application",
+    "MVVM architecture pattern",
+    "Cross-platform support",
+    "Theme support (light/dark)",
+    "Intuitive user interface",
+    "Performance optimized"
+  ]
+}
