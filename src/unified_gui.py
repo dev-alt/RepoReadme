@@ -64,6 +64,10 @@ class UnifiedRepoReadmeGUI:
         self.is_fetching_data = False
         self.current_task_thread: Optional[threading.Thread] = None
         
+        # Sorting state for analyze tab
+        self.sort_column = None
+        self.sort_reverse = False
+        
         # Setup GUI
         self.setup_styles()
         self.create_widgets()
@@ -303,14 +307,14 @@ class UnifiedRepoReadmeGUI:
         columns = ('name', 'language', 'stars', 'forks', 'size', 'updated')
         self.repo_tree = ttk.Treeview(repos_frame, columns=columns, show='tree headings', height=15)
         
-        # Define column headings
+        # Define column headings with sort commands
         self.repo_tree.heading('#0', text='Repository')
-        self.repo_tree.heading('name', text='Name')
-        self.repo_tree.heading('language', text='Language') 
-        self.repo_tree.heading('stars', text='Stars')
-        self.repo_tree.heading('forks', text='Forks')
-        self.repo_tree.heading('size', text='Size (KB)')
-        self.repo_tree.heading('updated', text='Updated')
+        self.repo_tree.heading('name', text='Name ↕', command=lambda: self.sort_repositories('name'))
+        self.repo_tree.heading('language', text='Language ↕', command=lambda: self.sort_repositories('language')) 
+        self.repo_tree.heading('stars', text='Stars ↕', command=lambda: self.sort_repositories('stars'))
+        self.repo_tree.heading('forks', text='Forks ↕', command=lambda: self.sort_repositories('forks'))
+        self.repo_tree.heading('size', text='Size (KB) ↕', command=lambda: self.sort_repositories('size'))
+        self.repo_tree.heading('updated', text='Updated ↕', command=lambda: self.sort_repositories('updated'))
         
         # Column widths
         self.repo_tree.column('#0', width=50)
@@ -342,6 +346,70 @@ class UnifiedRepoReadmeGUI:
         
         # Bind tree selection
         self.repo_tree.bind('<<TreeviewSelect>>', self.on_repo_select)
+    
+    def sort_repositories(self, column):
+        """Sort repositories by the specified column."""
+        if not self.current_user_data or not self.current_user_data.repositories:
+            return
+        
+        # Toggle sort direction if same column, otherwise start with ascending
+        if self.sort_column == column:
+            self.sort_reverse = not self.sort_reverse
+        else:
+            self.sort_column = column
+            self.sort_reverse = False
+        
+        # Update column headers to show sort direction
+        self._update_sort_headers()
+        
+        # Sort repositories
+        repos = self.current_user_data.repositories.copy()
+        
+        if column == 'name':
+            repos.sort(key=lambda r: r.name.lower(), reverse=self.sort_reverse)
+        elif column == 'language':
+            repos.sort(key=lambda r: (r.language or '').lower(), reverse=self.sort_reverse)
+        elif column == 'stars':
+            repos.sort(key=lambda r: r.stars or 0, reverse=self.sort_reverse)
+        elif column == 'forks':
+            repos.sort(key=lambda r: r.forks or 0, reverse=self.sort_reverse)
+        elif column == 'size':
+            repos.sort(key=lambda r: r.size or 0, reverse=self.sort_reverse)
+        elif column == 'updated':
+            repos.sort(key=lambda r: r.updated_at or '', reverse=self.sort_reverse)
+        
+        # Clear and repopulate tree with sorted data
+        for item in self.repo_tree.get_children():
+            self.repo_tree.delete(item)
+        
+        for i, repo in enumerate(repos):
+            updated_date = repo.updated_at[:10] if repo.updated_at else 'Unknown'
+            self.repo_tree.insert('', 'end', iid=str(i), text=str(i+1),
+                                 values=(repo.name, repo.language, repo.stars, 
+                                        repo.forks, repo.size, updated_date))
+        
+        # Store sorted repositories for selection handling
+        self.current_user_data.repositories = repos
+    
+    def _update_sort_headers(self):
+        """Update column headers to show current sort direction."""
+        # Base headers without sort indicators
+        headers = {
+            'name': 'Name',
+            'language': 'Language',
+            'stars': 'Stars', 
+            'forks': 'Forks',
+            'size': 'Size (KB)',
+            'updated': 'Updated'
+        }
+        
+        # Update each header
+        for col, base_text in headers.items():
+            if col == self.sort_column:
+                arrow = ' ↓' if self.sort_reverse else ' ↑'
+                self.repo_tree.heading(col, text=base_text + arrow)
+            else:
+                self.repo_tree.heading(col, text=base_text + ' ↕')
     
     def create_readme_tab(self):
         """Create the README generation tab."""
@@ -1072,8 +1140,28 @@ Bio: {user_data.bio or 'No bio available'}"""
         for item in self.repo_tree.get_children():
             self.repo_tree.delete(item)
         
+        # Apply current sort if one exists
+        repos = user_data.repositories.copy()
+        if self.sort_column:
+            if self.sort_column == 'name':
+                repos.sort(key=lambda r: r.name.lower(), reverse=self.sort_reverse)
+            elif self.sort_column == 'language':
+                repos.sort(key=lambda r: (r.language or '').lower(), reverse=self.sort_reverse)
+            elif self.sort_column == 'stars':
+                repos.sort(key=lambda r: r.stars or 0, reverse=self.sort_reverse)
+            elif self.sort_column == 'forks':
+                repos.sort(key=lambda r: r.forks or 0, reverse=self.sort_reverse)
+            elif self.sort_column == 'size':
+                repos.sort(key=lambda r: r.size or 0, reverse=self.sort_reverse)
+            elif self.sort_column == 'updated':
+                repos.sort(key=lambda r: r.updated_at or '', reverse=self.sort_reverse)
+            # Update the original data with sorted order
+            user_data.repositories = repos
+            # Update headers to show sort direction
+            self._update_sort_headers()
+        
         # Populate repository tree
-        for i, repo in enumerate(user_data.repositories):
+        for i, repo in enumerate(repos):
             updated_date = repo.updated_at[:10] if repo.updated_at else 'Unknown'
             
             self.repo_tree.insert('', 'end', iid=str(i), text=str(i+1),

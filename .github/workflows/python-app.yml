@@ -33,7 +33,7 @@ jobs:
     
     - name: Test CLI functionality
       run: |
-        python demo.py . --template modern --output test_readme.md
+        python examples/demo.py . --template modern --output test_readme.md
     
     - name: Verify GUI can import (Linux/macOS)
       if: runner.os != 'Windows'
